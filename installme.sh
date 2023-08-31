@@ -62,9 +62,15 @@ pip install -e ./Executables/py_BB/xpart
 git clone https://github.com/xsuite/xtrack ./Executables/py_BB/xtrack
 pip install -e ./Executables/py_BB/xtrack
 
+git clone https://github.com/xsuite/xmask ./Executables/py_BB/xmask
+pip install -e ./Executables/py_BB/xmask
+
 git clone https://github.com/xsuite/xfields ./Executables/py_BB/xfields
 pip install -e ./Executables/py_BB/xfields
 
 git clone https://github.com/PyCOMPLETE/FillingPatterns.git ./Executables/py_BB/FillingPatterns
 pip install -e ./Executables/py_BB/FillingPatterns
+
+git clone https://gitlab.cern.ch/mrufolo/fillingstudies.git ./Executables/py_BB/fillingstudies
+#pip install -e ./Executables/py_wireDAQ/fillingstudies
 #=========================================

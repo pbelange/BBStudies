@@ -8,10 +8,15 @@ Executables/**
 Data/Checks/**
 Data/Mask/**
 !Data/Mask/Tracking_tools/**
-!Data/Mask/000_pymask_rich.py
-!Data/Mask/000_pymask.py
+!Data/Mask/000_mask_template_rich.py
+!Data/Mask/000_mask_template.py
+!Data/Mask/000_Run_mask.py
 !Data/Mask/bbcw.py
 !Data/Mask/config.yaml
 !Data/Mask/optics_specific_tools.py
 !Data/Mask/readme.md
 !Data/Mask/run_pymask.py
+
+Data/XMask/**
+!Data/XMask/Tracking_tools/**
+!Data/XMask/config.yaml

@@ -1,0 +1,94 @@
+config_mad:
+    # Links to be made for tools and scripts
+    links:
+      run3seq: ../../../20230316_optics_run3_frederik/acc_models_lhc_2023
+      run3opt: ../../../20230316_optics_run3_frederik/optics_run_iii
+      run3aper: ../../../20230316_optics_run3_frederik/layout_db_files_lhc
+      extra: ../../../20230316_optics_run3_frederik/extra_tools
+
+    # Optics file
+    optics_file: run3opt/RunIII_dev/Proton_2023/opticsfile.43
+
+    # Beam parameters
+    beam_config:
+      lhcb1:
+        beam_energy_tot: 6800           # [GeV]
+      lhcb2:
+        beam_energy_tot: 6800           # [GeV]
+
+    install_apertures: true
+
+    # Enable machine imperfections
+    enable_imperfections: false
+
+    # Enable knob synthesis (for coupling correction, if no imperfections)
+    enable_knob_synthesis: false
+
+
+config_knobs_and_tuning:
+
+    knob_settings:
+
+      # Orbit knobs
+      on_x1    : -160.0
+      on_x2h   : 0
+      on_x2v   : 200.0
+      on_x5    : 160.0
+      on_x8h   : 0.0
+      on_x8v   : 200.0
+      on_sep1  : 0.0
+      on_sep2h : 0.0
+      on_sep2v : 0
+      on_sep5  : 0.0
+      on_sep8h : 0.0
+      on_sep8v : 0.0
+      on_a1    : 0
+      on_a2    : 0.0
+      on_a5    : 0
+      on_a8    : 0.0
+      on_o1    : 0
+      on_o2    : 0
+      on_o5    : 0
+      on_o8    : 0
+      on_alice     : 1
+      on_lhcb      : 1
+      on_sol_atlas : 0
+      on_sol_cms   : 0
+      on_sol_alice : 0
+
+      on_disp: 0
+
+      # RF voltage and phases
+      vrf400:       12.0            # [MV]
+      lagrf400.b1:   0.5            # [rad]
+      lagrf400.b2:   0.             # [rad]
+
+      # Octupoles
+      i_oct_b1:     295.52732           # [A]
+      i_oct_b2:     295.52732           # [A]
+
+    # Tunes and chromaticities
+    qx:
+      lhcb1: 62.31
+      lhcb2: 62.31
+    qy:
+      lhcb1: 60.32
+      lhcb2: 60.32
+    dqx:
+      lhcb1: 20
+      lhcb2: 20
+    dqy:
+      lhcb1: 20
+      lhcb2: 20
+
+    knob_names:
+      lhcb1:
+        q_knob_1: dqx.b1_sq
+        q_knob_2: dqy.b1_sq
+        dq_knob_1: dqpx.b1_sq
+        dq_knob_2: dqpy.b1_sq
+      lhcb2:
+        q_knob_1: dqx.b2_sq
+        q_knob_2: dqy.b2_sq
+        dq_knob_1: dqpx.b2_sq
+        dq_knob_2: dqpy.b2_sq
