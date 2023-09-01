@@ -1,0 +1,101 @@
+! Beam1 -> LE   =   errorgenerate_dip
+! Beam1 -> NLE  |   errorgenerate_dip_inv
+
+! Aperture 1 is External when Beam 1 enters Lead end
+! Aperture 2 in External when Beam 1 enters Nonlead end
+! Aperture 1 is Internal when Beam 1 enters Nonlead end
+! Aperture 2 in Internal when Beam 1 enters Lead end
+
+! Beam1:  In IP1 Ex IP2 In IP3-4-5 Ex IP6-7-8 In
+! Beam2:  Ex IP1 In IP2 Ex IP3-4-5 In IP6-7-8 Ex
+
+! The orientation is     =MBH| coll |MBH=
+
+! Error tables refer
+! -> =(V1) MBH.B8L7B1|
+! -> =(V2) MBH.B8L7B2|
+
+! Different elements  Q8 and Q10 are the same
+! ext B2 <- =(V1-) MBH.B8L1B2| |MBH.A8L1B2 (V2+)=
+! int B1 -> =(V2+) MBH.B8L1B1| |MBH.A8L1B1 (V1-)=
+!                           IP1
+! ext B1 -> =(V1+) MBH.A8R1B1| |MBH.B8R1B1 (V2-)=
+! int B2 <- =(V2-) MBH.A8R1B2| |MBH.B8R1B2 (V1+)=
+!                          ARC12
+! ext B1 -> =(V1+) MBH.B8L2B1| |MBH.A8L2B1 (V2-)=
+! int B2 <- =(V2-) MBH.B8L2B2| |MBH.A8L2B2 (V1+)=
+!                           IP2
+! ext B2 <- =(V1-) MBH.A8R2B2| |MBH.B8R2B2 (V2+)=
+! int B1 -> =(V2+) MBH.A8R2B1| |MBH.B8R2B1 (V1-)=
+!            ARC23 IR3 ARC34 IR4 ARC45
+! ext B2 <- =(V1-) MBH.B8L5B2| |MBH.A8L5B2 (V2+)=
+! int B1 -> =(V2+) MBH.B8L5B1| |MBH.A8L5B1 (V1-)=
+!                           IP5
+! ext B1 -> =(V1+) MBH.A8R5B1| |MBH.B8R5B1 (V2-)=
+! int B2 <- =(V2-) MBH.A8R5B2| |MBH.B8R5B2 (V1+)=
+!                     ARC56 IR6 ARC67
+! ext B1 -> =(V1+) MBH.B8L7B1| |MBH.A8L7B1 (V2-)=
+! int B2 <- =(V2-) MBH.B8L7B2| |MBH.A8L7B2 (V1+)=
+!                           IP7
+! ext B1 -> =(V1+) MBH.A8R7B1| |MBH.B8R7B1 (V2+)=
+! int B2 <- =(V2-) MBH.A8R7B2| |MBH.B8R7B2 (V1-)=
+
+! F.F. Van der Veken Aug 2019
+! MBH.AL  and MBH.BR are inverted (while MBH.AR and MBH.BL are not)
+! Inversions were wrongly implemented (a difference was made between Beam 1 and Beam 2,
+! while the definition of whether or not a magnet is inverted is only done wrt Beam 1,
+! as the effect of Beam 2 is already accounted for in the errorgenerate script)
+
+
+exec new_magnetfamily_MB(MBH);
+
+assign_mbh_err(mbn,irn,apl,apr): macro={
+! apl aperture# Beam1 elem MBH.AL
+! apr aperture# Beam1 elem MBH.AR
+  mbh_irirnqmbn=mbh_irirnqmbn+mbh_irirnqmbna+mbh_irirnqmbnb;
+  if (mbh_irirnqmbn >0){
+    if(mylhcbeam==1){
+      if(apl==1) {iapAL=1;iapBL=2;};
+      if(apl==2) {iapAL=2;iapBL=1;};
+      if(apr==1) {iapAr=1;iapBr=2;};
+      if(apr==2) {iapAr=2;iapBr=1;};
+      
+    };
+    if(mylhcbeam>1){
+      if(apl==1) {iapAL=2;iapBL=1;};
+      if(apl==2) {iapAL=1;iapBL=2;};
+      if(apr==1) {iapAr=2;iapBr=1;};
+      if(apr==2) {iapAr=1;iapBr=2;};
+    };
+    if (print_errors==1){print, text="Errors for MBH.BmbnLirn.*";};
+    select,flag=error,clear; select,flag=error,pattern="^MBH\.BmbnLirn.*$";
+    exec new_magnetindividual(MBH,iapBL);exec errorgenerate_dip(MBH);
+    if (print_errors==1){print, text="Errors for MBH.AmbnLirn.*";};
+    select,flag=error,clear; select,flag=error,pattern="^MBH\.AmbnLirn.*$";
+    exec new_magnetindividual(MBH,iapAL);exec errorgenerate_dip_inv(MBH);
+    if (print_errors==1){print, text="Errors for MBH.AmbnRirn.*";};
+    select,flag=error,clear; select,flag=error,pattern="^MBH\.AmbnRirn.*$";
+    exec new_magnetindividual(MBH,iapAR);exec errorgenerate_dip(MBH);
+    if (print_errors==1){print, text="Errors for MBH.BmbnRirn.*";};
+    select,flag=error,clear; select,flag=error,pattern="^MBH\.BmbnRirn.*$";
+    exec new_magnetindividual(MBH,iapBR);exec errorgenerate_dip_inv(MBH);
+  };
+};
+
+if (mbh_ir1q8 >0){ exec,assign_mbh_err( 8,1,1,1); };
+if (mbh_ir1q9 >0){ exec,assign_mbh_err( 9,1,1,1); };
+if (mbh_ir1q10>0){ exec,assign_mbh_err(10,1,1,1); };
+
+if (mbh_ir2q8 >0){ exec,assign_mbh_err( 8,2,2,2); };
+if (mbh_ir2q10>0){ exec,assign_mbh_err(10,2,2,2); };
+
+if (mbh_ir5q8 >0){ exec,assign_mbh_err( 8,5,1,1); };
+if (mbh_ir5q9 >0){ exec,assign_mbh_err( 9,5,1,1); };
+if (mbh_ir5q10>0){ exec,assign_mbh_err(10,5,1,1); };
+
+mbh_ir7q8_tot = mbh_ir7q8 + mbh_ir7q8a + mbh_ir7q8b;
+mbh_ir7q9_tot = mbh_ir7q9 + mbh_ir7q9a + mbh_ir7q9b;
+mbh_ir7q10_tot= mbh_ir7q10+ mbh_ir7q10a+ mbh_ir7q10b;
+if (mbh_ir7q8_tot >0){ exec,assign_mbh_err( 8,7,2,1); };
+if (mbh_ir7q9_tot >0){ exec,assign_mbh_err( 9,7,2,1); };
+if (mbh_ir7q10_tot>0){ exec,assign_mbh_err(10,7,2,1); };

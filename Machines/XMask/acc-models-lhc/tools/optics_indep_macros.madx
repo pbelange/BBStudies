@@ -1,0 +1,23 @@
+!From L.Deniau https://github.com/MethodicalAcceleratorDesign/MAD-X/issues/883
+copytable(source, target) : macro = {
+copytable.__i = 1 ;
+copytable.__n = table(source, tablelength) ;
+while ( copytable.__i <= copytable.__n ) {
+setvars, table = source, row = copytable.__i ;
+fill, table = target, row = copytable.__i ;
+copytable.__i = copytable.__i + 1 ;
+}
+}
+
+!From L.Deniau https://github.com/MethodicalAcceleratorDesign/MAD-X/issues/883
+clonesumm(target) : macro = {
+create, table = target, column = {
+"length", "orbit5", "alfa", "gammatr", "q1",
+"dq1", "betxmax", "dxmax", "dxrms", "xcomax",
+"xcorms", "q2", "dq2", "betymax", "dymax",
+"dyrms", "ycomax", "ycorms", "deltap",
+"synch_1","synch_2","synch_3","synch_4","synch_5",
+"nflips"
+} ;
+exec, copytable(summ, target) ;
+}

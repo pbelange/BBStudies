@@ -1,0 +1,53 @@
+!S. Fartoukh,  readme file for Run3 proton optics in 2022, 22/09/2021
+**** DEFAULT SETTINGS:
+a) nrj defined to 6.80 TeV at flat top (opticsfile.xx with xx>=15), otherwise defined to the actual beam energy in the ramp 
+b) tunes matched to 62.31/60.32 for all optics files
+c) chroma matched to 0 units for all optics files
+d) octupoles OFF (calibrated in LSA knob value, e.g ON_MO.b1 = -3 means about + 600 A in the MOs with positive polarity)
+e) nominal crossing plane (V/V/H/H in IR1/2/5/8)
+f) IP crossing knobs (on_x1/2/5/8) calibrated in microrad and set to their actual value in the ramp (opticsfile.xx with xx<=15), constant during squeeze (xx=15 -> 22), and BBLR limit in collision (opticsfile.xx with xx>=23)
+The V rotation in LHCb is NOT assumed 
+[BBLR limit for Run 3: onx1/5=0.5*(107.25867233 + 14.78092728 * sqrt(beta_ref) + 255.84493941 * beta_ref -102.4652551 * beta_ref^1.5)/sqrt(beta_ref), on_x2h=0, on_x2v=200, on_x8h=-200, on_x8v=0 ]
+g) IP parallel sep knob (on_sep1/2/5/8) calibrated in mm and set to their actual value in the ramp (opticsfile.xx with xx<=15), and constant during the squeeze and in collision (0.55 mm in IR1/5, 1 mm for IR2/8)
+h) IP shift knob (on_oh/v/1/2/5/8) calibrated in mm and set to 0 (Alice and CMS assumed to be re-aligned compared to Run II)
+i) on_a2/on_a8 (pitch of the || plane in IR2/8) calibrated in microrad and set to their actual value in the ramp (opticsfile.xx with xx<=15), reaching 0 at the EoR (opticsfile.xx with xx>=15)
+j) Note the new IP knobs in IR2/8: on_sep2h, on_sep2v,on_x2h, on_x2v (instead of on_sep2 and on_x2), idem for IR8
+
+**** FILE NAMING CONVENTION (for upload in LSA, only files with "_LSA" suffix should be used)
+opticsfile.1   : beta*_IP1/2/5/8= 11.000/10.000/11.000/10.000 ; Tele-index= 1.000 ; Presqueezed beta* =11.000 ; ! Injection							      
+opticsfile.2   : beta*_IP1/2/5/8= 10.000/10.000/10.000/10.000 ; Tele-index= 1.000 ; Presqueezed beta* =10.000 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000   	  
+opticsfile.3   : beta*_IP1/2/5/8=  9.700/10.000/ 9.700/ 9.700 ; Tele-index= 1.000 ; Presqueezed beta* = 9.700 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000   	   
+opticsfile.4   : beta*_IP1/2/5/8=  9.300/10.000/ 9.300/ 9.300 ; Tele-index= 1.000 ; Presqueezed beta* = 9.300 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000   	   
+opticsfile.5   : beta*_IP1/2/5/8=  8.800/10.000/ 8.800/ 8.800 ; Tele-index= 1.000 ; Presqueezed beta* = 8.800 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000    
+opticsfile.6   : beta*_IP1/2/5/8=  8.100/10.000/ 8.100/ 8.100 ; Tele-index= 1.000 ; Presqueezed beta* = 8.100 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000    
+opticsfile.7   : beta*_IP1/2/5/8=  7.000/10.000/ 7.000/ 7.000 ; Tele-index= 1.000 ; Presqueezed beta* = 7.000 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000   ! Compatible with 7 TeV @ 209.9 T/m
+opticsfile.8   : beta*_IP1/2/5/8=  6.000/10.000/ 6.000/ 6.000 ; Tele-index= 1.000 ; Presqueezed beta* = 6.000 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000    
+opticsfile.9   : beta*_IP1/2/5/8=  5.100/10.000/ 5.100/ 5.100 ; Tele-index= 1.000 ; Presqueezed beta* = 5.100 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000    
+opticsfile.10  : beta*_IP1/2/5/8=  4.400/10.000/ 4.400/ 4.400 ; Tele-index= 1.000 ; Presqueezed beta* = 4.400 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000     
+opticsfile.11  : beta*_IP1/2/5/8=  3.700/10.000/ 3.700/ 3.700 ; Tele-index= 1.000 ; Presqueezed beta* = 3.700 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000     
+opticsfile.12  : beta*_IP1/2/5/8=  3.100/10.000/ 3.100/ 3.100 ; Tele-index= 1.000 ; Presqueezed beta* = 3.100 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000     
+opticsfile.13  : beta*_IP1/2/5/8=  2.500/10.000/ 2.500/ 2.500 ; Tele-index= 1.000 ; Presqueezed beta* = 2.500 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000     
+opticsfile.14  : beta*_IP1/2/5/8=  2.000/10.000/ 2.000/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 2.000 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000   ! nrj=4.52 TeV (beta*=2.0 m) 
+opticsfile.15  : beta*_IP1/2/5/8=  2.000/10.000/ 2.000/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 2.000 ; ! Combined ramp and pre-squeeze at constant tele-index=1.00000   ! EoR at 6.8 TeV (beta*=2.0 m, Q6 @800 A)
+opticsfile.16  : beta*_IP1/2/5/8=  1.550/10.000/ 1.550/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 1.550 ; ! Squeeze  (pre-squeezed mode)  
+opticsfile.17  : beta*_IP1/2/5/8=  1.330/10.000/ 1.330/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 1.330 ; ! Squeeze  (pre-squeezed mode)  
+opticsfile.18  : beta*_IP1/2/5/8=  1.180/10.000/ 1.180/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 1.180 ; ! Squeeze  (pre-squeezed mode) 		 
+opticsfile.19  : beta*_IP1/2/5/8=  1.040/10.000/ 1.040/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 1.040 ; ! Squeeze  (pre-squeezed mode) 		 
+opticsfile.20  : beta*_IP1/2/5/8=  0.890/10.000/ 0.890/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 0.890 ; ! Squeeze  (pre-squeezed mode) 		 
+opticsfile.21  : beta*_IP1/2/5/8=  0.710/10.000/ 0.710/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 0.710 ; ! Squeeze  (pre-squeezed mode) 		 
+opticsfile.22  : beta*_IP1/2/5/8=  0.600/10.000/ 0.600/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 0.600 ; ! Squeeze  (pre-squeezed mode)                                   !  EoS, Q6 @210 A , X-angle set to 320 murad in IR1/5		 
+opticsfile.23  : beta*_IP1/2/5/8=  0.600/10.000/ 0.600/ 2.000 ; Tele-index= 1.000 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.24  : beta*_IP1/2/5/8=  0.560/10.000/ 0.560/ 2.000 ; Tele-index= 1.071 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.25  : beta*_IP1/2/5/8=  0.520/10.000/ 0.520/ 2.000 ; Tele-index= 1.154 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.26  : beta*_IP1/2/5/8=  0.485/10.000/ 0.485/ 2.000 ; Tele-index= 1.237 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.27  : beta*_IP1/2/5/8=  0.450/10.000/ 0.450/ 2.000 ; Tele-index= 1.333 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.28  : beta*_IP1/2/5/8=  0.415/10.000/ 0.415/ 2.000 ; Tele-index= 1.446 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.29  : beta*_IP1/2/5/8=  0.385/10.000/ 0.385/ 2.000 ; Tele-index= 1.558 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.30  : beta*_IP1/2/5/8=  0.355/10.000/ 0.355/ 2.000 ; Tele-index= 1.690 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.31  : beta*_IP1/2/5/8=  0.325/10.000/ 0.325/ 2.000 ; Tele-index= 1.846 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.32  : beta*_IP1/2/5/8=  0.300/10.000/ 0.300/ 2.000 ; Tele-index= 2.000 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.33  : beta*_IP1/2/5/8=  0.280/10.000/ 0.280/ 2.000 ; Tele-index= 2.143 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.34  : beta*_IP1/2/5/8=  0.260/10.000/ 0.260/ 2.000 ; Tele-index= 2.308 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.35  : beta*_IP1/2/5/8=  0.240/10.000/ 0.240/ 2.000 ; Tele-index= 2.500 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.36  : beta*_IP1/2/5/8=  0.220/10.000/ 0.220/ 2.000 ; Tele-index= 2.727 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit
+opticsfile.37  : beta*_IP1/2/5/8=  0.200/10.000/ 0.200/ 2.000 ; Tele-index= 3.000 ; Presqueezed beta* = 0.600 ; ! Collide and tele-squeeze (i.e. beta* levelling) at constant pre-squeezed beta*=0.6 m ! X-angle set to BBLR limit

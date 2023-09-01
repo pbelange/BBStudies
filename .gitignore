@@ -18,5 +18,9 @@ Machines/Mask/**
 !Machines/Mask/run_pymask.py
 
 Machines/XMask/**
-!Machines/XMask/Tracking_tools/**
+!Machines/XMask/acc-models-lhc/**
+!Machines/XMask/acc-models-lhc
 !Machines/XMask/config.yaml
+!Machines/XMask/*.py
+!Machines/XMask/*.md
+!Machines/XMask/*.ipynb

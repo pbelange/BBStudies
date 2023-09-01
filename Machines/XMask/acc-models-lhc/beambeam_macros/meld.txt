@@ -1,0 +1,19 @@
+
+     ./SLHCV3.1a/beambeam/macro_bb.madx
+    ./SLHCV1.0/beambeam/macro_bb.madx
+    ./SLHCV3.0/beambeam/macro_bb.madx
+    
+    
+    ./SLHCV2.0/beambeam/macro_bb.madx
+    
+    
+    ./SLHCV3.01/beambeam/macro_bb.madx
+    ./SLHCV3.1b/beambeam/macro_bb.madx
+    ./SLHCV3.1b/ver_20120311/beambeam/macro_bb.madx
+    ./HLLHCV1.0/beambeam/macro_bb.madx
+    ./HLLHCV1.2/beambeam/macro_bb.madx
+    ./HLLHCV1.3/beambeam/macro_bb.madx
+    ./HLLHCV1.3/beambeam2/macro_bb.madx
+    ./HLLHCV1.4/beambeam/macro_bb.madx
+        Done -> compatible
+

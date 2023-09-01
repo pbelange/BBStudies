@@ -1,0 +1,79 @@
+print, text="";
+print, text="";
+print, text="  --- Submodule 4a: preparation";
+print, text="  -----------------------------";
+print, text="";
+print, text="";
+
+
+on_disp = 0;
+
+myseed               = par_myseed;
+on_errors_LHC        = par_on_errors_LHC;
+off_errors_Q4_inIP15 = par_off_errors_Q4_inIP15;
+off_errors_Q5_inIP15 = par_off_errors_Q5_inIP15;
+on_errors_MBH        = par_on_errors_MBH;
+on_errors_IT         = par_on_errors_IT;
+on_errors_Q4         = par_on_errors_Q4;
+on_errors_D1         = par_on_errors_D1;
+on_errors_D2         = par_on_errors_D2;
+on_errors_MCBRD      = par_on_errors_MCBRD;
+on_errors_MCBXF      = par_on_errors_MCBXF;
+on_errors_NLC        = par_on_errors_NLC;
+correct_for_D2       = par_correct_for_D2;
+correct_for_MCBX     = par_correct_for_MCBX;
+print_errors         = par_verbose;
+write_errortable     = par_write_errortable;
+
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!         Call error macros
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+! Error routine and measured error table for nominal LHC
+call, file="errors/LHC/Msubroutines.madx";
+call, file="errors/LHC/Msubroutines_MS_MSS_MO.madx";
+call, file="tools/Orbit_Routines.madx";
+if (ver_lhc_run > 0)      { call, file="tools/SelectLHCMonCor_v1.madx"; };
+if (ver_hllhc_optics > 0) { call, file="tools/SelectLHCMonCor_v2.madx"; };
+
+if (ver_hllhc_optics < 1.3) {
+  call, file="errors/HL-LHC/macro_error_v1.madx";   ! macros for error generation in the new IT/D1's
+};
+if (ver_hllhc_optics >= 1.3) {
+  call, file="errors/HL-LHC/macro_error_v3.madx";   ! macros for error generation in the new IT/D1's
+};
+
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!                Switch ON/OFF some multipole
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+! Tracking is done without first nor second order errors
+exec, ON_ALL_MULT;
+ON_A1s =  0 ; ON_A1r =  0 ; ON_B1s =  0 ; ON_B1r =  0 ;
+ON_A2s =  0 ; ON_A2r =  0 ; ON_B2s =  0 ; ON_B2r =  0 ;
+ON_A3s =  1 ; ON_A3r =  1 ; ON_B3s =  1 ; ON_B3r =  1 ;
+ON_A4s =  1 ; ON_A4r =  1 ; ON_B4s =  1 ; ON_B4r =  1 ;
+ON_A5s =  1 ; ON_A5r =  1 ; ON_B5s =  1 ; ON_B5r =  1 ;
+ON_A6s =  1 ; ON_A6r =  1 ; ON_B6s =  1 ; ON_B6r =  1 ;
+ON_A7s =  1 ; ON_A7r =  1 ; ON_B7s =  1 ; ON_B7r =  1 ;
+ON_A8s =  1 ; ON_A8r =  1 ; ON_B8s =  1 ; ON_B8r =  1 ;
+ON_A9s =  1 ; ON_A9r =  1 ; ON_B9s =  1 ; ON_B9r =  1 ;
+ON_A10s = 1 ; ON_A10r = 1 ; ON_B10s = 1 ; ON_B10r = 1 ;
+ON_A11s = 1 ; ON_A11r = 1 ; ON_B11s = 1 ; ON_B11r = 1 ;
+ON_A12s = 1 ; ON_A12r = 1 ; ON_B12s = 1 ; ON_B12r = 1 ;
+ON_A13s = 1 ; ON_A13r = 1 ; ON_B13s = 1 ; ON_B13r = 1 ;
+ON_A14s = 1 ; ON_A14r = 1 ; ON_B14s = 1 ; ON_B14r = 1 ;
+ON_A15s = 1 ; ON_A15r = 1 ; ON_B15s = 1 ; ON_B15r = 1 ;
+
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++;
+!               Prepare nominal twiss tables
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++;
+call, file="modules/submodule_04a_s1_prepare_nom_twiss_table.madx";
+
+! disable crossing bumps
+exec, crossing_disable;

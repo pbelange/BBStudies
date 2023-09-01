@@ -1,0 +1,620 @@
+! Script to cancel feed-down from given multipole(s)
+! Just set the adequate flags and call this file.
+! Flags are ON_cancelFD_MAGNETFAMILY to choose the families for which you want to cancel FD,
+! and e.g. ON_cancelFD_b3 to cancel all feed-down coming from b3, or ON_cancelFD_b3tob2 to only cancel feed-down from b3 into b2.
+!
+! F.F. Van der Veken, 6 April 2020
+
+
+if (ON_cancelFD_MBH + ON_cancelFD_MBXF + ON_cancelFD_MCBXFAH + ON_cancelFD_MCBXFAV + ON_cancelFD_MCBXFBH + ON_cancelFD_MCBXFBV + ON_cancelFD_MBRD + ON_cancelFB_MCBRDH + ON_cancelFB_MCBRDV + ON_cancelFD_MQXFA + ON_cancelFD_MQXFB + ON_cancelFD_MQY == 0) {
+
+	print, text="Warning! No magnet family selected for feed-down cancellation. Please enable any of the following:";
+	print, text="     ON_cancelFD_MBH";
+	print, text="     ON_cancelFD_MBXF";
+	print, text="     ON_cancelFD_MCBXFAH";
+	print, text="     ON_cancelFD_MCBXFAV";
+	print, text="     ON_cancelFD_MCBXFBH";
+	print, text="     ON_cancelFD_MCBXFBV";
+	print, text="     ON_cancelFD_MBRD";
+	print, text="     ON_cancelFB_MCBRDH";
+	print, text="     ON_cancelFB_MCBRDV";
+	print, text="     ON_cancelFD_MQXFA";
+	print, text="     ON_cancelFD_MQXFB";
+	print, text="     ON_cancelFD_MQY";
+	print, text="";
+	print, text="Feed-down cancellation not executed.";
+
+} elseif ( ON_cancelFD_b2 + ON_cancelFD_b2tob1 + ON_cancelFD_b2toa1 + ON_cancelFD_a2 + ON_cancelFD_a2tob1 + ON_cancelFD_a2toa1 + ON_cancelFD_b3 + ON_cancelFD_b3tob2 + ON_cancelFD_b3toa2 + ON_cancelFD_b3tob1 + ON_cancelFD_b3toa1 + ON_cancelFD_a3 + ON_cancelFD_a3tob2 + ON_cancelFD_a3toa2 + ON_cancelFD_a3tob1 + ON_cancelFD_a3toa1 + ON_cancelFD_b4 + ON_cancelFD_b4tob3 + ON_cancelFD_b4toa3 + ON_cancelFD_b4tob2 + ON_cancelFD_b4toa2 + ON_cancelFD_b4tob1 + ON_cancelFD_b4toa1 + ON_cancelFD_a4 + ON_cancelFD_a4tob3 + ON_cancelFD_a4toa3 + ON_cancelFD_a4tob2 + ON_cancelFD_a4toa2 + ON_cancelFD_a4tob1 + ON_cancelFD_a4toa1 + ON_cancelFD_b5 + ON_cancelFD_b5tob4 + ON_cancelFD_b5toa4 + ON_cancelFD_b5tob3 + ON_cancelFD_b5toa3 + ON_cancelFD_b5tob2 + ON_cancelFD_b5toa2 + ON_cancelFD_b5tob1 + ON_cancelFD_b5toa1 + ON_cancelFD_a5 + ON_cancelFD_a5tob4 + ON_cancelFD_a5toa4 + ON_cancelFD_a5tob3 + ON_cancelFD_a5toa3 + ON_cancelFD_a5tob2 + ON_cancelFD_a5toa2 + ON_cancelFD_a5tob1 + ON_cancelFD_a5toa1 + ON_cancelFD_b6 + ON_cancelFD_b6tob5 + ON_cancelFD_b6toa5 + ON_cancelFD_b6tob4 + ON_cancelFD_b6toa4 + ON_cancelFD_b6tob3 + ON_cancelFD_b6toa3 + ON_cancelFD_b6tob2 + ON_cancelFD_b6toa2 + ON_cancelFD_b6tob1 + ON_cancelFD_b6toa1 + ON_cancelFD_a6 + ON_cancelFD_a6tob5 + ON_cancelFD_a6toa5 + ON_cancelFD_a6tob4 + ON_cancelFD_a6toa4 + ON_cancelFD_a6tob3 + ON_cancelFD_a6toa3 + ON_cancelFD_a6tob2 + ON_cancelFD_a6toa2 + ON_cancelFD_a6tob1 + ON_cancelFD_a6toa1 == 0 ) {
+	
+	print, text="Warning! No multipole selected for feed-down cancellation. Please enable any flag in the form of ON_cancelFD_b3 or ON_cancelFD_b3tob2, up to 6th order.";
+	print, text="Feed-down cancellation not executed.";
+
+} else {
+	if (ON_cancelFD_b2==1){ ON_cancelFD_b2tob1=1; ON_cancelFD_b2toa1=1; };
+	if (ON_cancelFD_a2==1){ ON_cancelFD_a2tob1=1; ON_cancelFD_a2toa1=1; };
+	if (ON_cancelFD_b3==1){ ON_cancelFD_b3tob2=1; ON_cancelFD_b3toa2=1; ON_cancelFD_b3tob1=1; ON_cancelFD_b3toa1=1; };
+	if (ON_cancelFD_a3==1){ ON_cancelFD_a3tob2=1; ON_cancelFD_a3toa2=1; ON_cancelFD_a3tob1=1; ON_cancelFD_a3toa1=1; };
+	if (ON_cancelFD_b4==1){ ON_cancelFD_b4tob3=1; ON_cancelFD_b4toa3=1; ON_cancelFD_b4tob2=1; ON_cancelFD_b4toa2=1; ON_cancelFD_b4tob1=1; ON_cancelFD_b4toa1=1; };
+	if (ON_cancelFD_a4==1){ ON_cancelFD_a4tob3=1; ON_cancelFD_a4toa3=1; ON_cancelFD_a4tob2=1; ON_cancelFD_a4toa2=1; ON_cancelFD_a4tob1=1; ON_cancelFD_a4toa1=1; };
+	if (ON_cancelFD_b5==1){ ON_cancelFD_b5tob4=1; ON_cancelFD_b5toa4=1; ON_cancelFD_b5tob3=1; ON_cancelFD_b5toa3=1; ON_cancelFD_b5tob2=1; ON_cancelFD_b5toa2=1; ON_cancelFD_b5tob1=1; ON_cancelFD_b5toa1=1; };
+	if (ON_cancelFD_a5==1){ ON_cancelFD_a5tob4=1; ON_cancelFD_a5toa4=1; ON_cancelFD_a5tob3=1; ON_cancelFD_a5toa3=1; ON_cancelFD_a5tob2=1; ON_cancelFD_a5toa2=1; ON_cancelFD_a5tob1=1; ON_cancelFD_a5toa1=1; };
+	if (ON_cancelFD_b6==1){ ON_cancelFD_b6tob5=1; ON_cancelFD_b6toa5=1; ON_cancelFD_b6tob4=1; ON_cancelFD_b6toa4=1; ON_cancelFD_b6tob3=1; ON_cancelFD_b6toa3=1; ON_cancelFD_b6tob2=1; ON_cancelFD_b6toa2=1; ON_cancelFD_b6tob1=1; ON_cancelFD_b6toa1=1; };
+	if (ON_cancelFD_a6==1){ ON_cancelFD_a6tob5=1; ON_cancelFD_a6toa5=1; ON_cancelFD_a6tob4=1; ON_cancelFD_a6toa4=1; ON_cancelFD_a6tob3=1; ON_cancelFD_a6toa3=1; ON_cancelFD_a6tob2=1; ON_cancelFD_a6toa2=1; ON_cancelFD_a6tob1=1; ON_cancelFD_a6toa1=1; };
+
+	! Backup all errors
+	select, flag=error, clear;
+	select, flag=error, pattern="M.*";
+	esave,  file="error_fd_backup.tfs";
+
+	! Write all errors for which we want to cancel feed-down
+	select, flag=error, clear;
+	if (ON_cancelFD_MBH==1){
+		select, flag=error, pattern=MBH\.;
+	};
+	if (ON_cancelFD_MBXF==1){
+		select, flag=error, pattern=MBXF\.;
+	};
+	if (ON_cancelFD_MCBXFAH==1){
+		select, flag=error, pattern=MCBXFAH\.;
+	};
+	if (ON_cancelFD_MCBXFAV==1){
+		select, flag=error, pattern=MCBXFAV\.;
+	};
+	if (ON_cancelFD_MCBXFBH==1){
+		select, flag=error, pattern=MCBXFBH\.;
+	};
+	if (ON_cancelFD_MCBXFBV==1){
+		select, flag=error, pattern=MCBXFBV\.;
+	};
+	if (ON_cancelFD_MBRD==1){
+		select, flag=error, pattern=MBRD\.;
+	};
+	if (ON_cancelFD_MCBRDH==1){
+		select, flag=error, pattern=MCBRDH\.;
+	};
+	if (ON_cancelFD_MCBRDV==1){
+		select, flag=error, pattern=MCBRDV\.;
+	};
+	if (ON_cancelFD_MQXFA==1){
+		select, flag=error, pattern=MQXFA\.;
+	};
+	if (ON_cancelFD_MQXFB==1){
+		select, flag=error, pattern=MQXFB\.;
+	};
+	if (ON_cancelFD_MQY==1){
+		select, flag=error, pattern=MQY\.;
+	};
+	esave,  file="error_fd.tfs";
+
+	! Temporarily remove those errors to get correct orbit calculation
+	assign, echo="tempcode_remove_errors_for_FD.py",truncate;
+	print, text="import csv";
+	print, text="import os";
+	print, text="";
+	print, text="def find_index_with_whitespaces(list,index_without_whitespace):";
+	print, text="	new_i = -1";
+	print, text="	i = -1";
+	print, text="	while i < index_without_whitespace :";
+	print, text="		new_i += 1";
+	print, text="		if list[new_i] != '' : i += 1 ";
+	print, text="	return new_i";
+	print, text="";
+	print, text="if (os.path.isfile('error_fd.tfs')):";
+	print, text="	errors = list(csv.reader(open('error_fd.tfs'), delimiter=' '))";
+	print, text="	errorsHEAD = [x for x in errors if x[0] != '' ]";
+	print, text="	errorsHeaders = [y for y in [x for x in errorsHEAD if x[0] == '*'][0][1:] if y!='']";
+	print, text="	errorsBODY = [x for x in errors if x[0] == '' ]";
+	print, text="";
+	print, text="	for line in errorsBODY:";
+	print, text="		if line[0] == '':";
+	print, text="			iK2L  = find_index_with_whitespaces(line,errorsHeaders.index('K2L'))";
+	print, text="			iK2SL = find_index_with_whitespaces(line,errorsHeaders.index('K2SL'))";
+	if (ON_cancelFD_b3<>0){
+	print, text="			line[iK2L]  = '0'";
+	};
+	if (ON_cancelFD_a3<>0){
+	print, text="			line[iK2SL] = '0'";
+	};
+	print, text="";
+	print, text="	csv.writer(open('error_temp.tfs','w'), delimiter=' ').writerows(errorsHEAD + errorsBODY)";
+	print, text="else:";
+	print, text="	print('Warning: error_fd.tfs missing!\nAborted calculation of feed-down cancellation.\n')";
+	print, text="";
+	assign;
+	System,"python tempcode_remove_errors_for_FD.py";
+	System,"rm tempcode_remove_errors_for_FD.py";
+	READTABLE, file="error_temp.tfs", table=errtab;
+	SETERR, TABLE=errtab;
+	System,"rm error_temp.tfs";
+
+	! Get orbit
+	select, flag=twiss, clear;
+	select, flag=twiss, pattern="M.*", column=name,x,y;
+	twiss, file="twiss_fd.tfs";
+	
+	!Restore all errors
+	READTABLE, file="error_fd_backup.tfs", table=errtab;
+	SETERR, TABLE=errtab;
+	System,"rm error_fd_backup.tfs";
+
+	! Now do the feed-down cancellation
+	assign, echo="cancelfeeddown_tempcode.py",truncate;
+	print, text="import csv";
+	print, text="import os";
+	print, text="";
+	print, text="def find_index_with_whitespaces(list,index_without_whitespace):";
+	print, text="	new_i = -1";
+	print, text="	i = -1";
+	print, text="	while i < index_without_whitespace :";
+	print, text="		new_i += 1";
+	print, text="		if list[new_i] != '' : i += 1 ";
+	print, text="	return new_i";
+	print, text="";
+	print, text="if (os.path.isfile('error_fd.tfs') and os.path.isfile('twiss_fd.tfs')):";
+	print, text="	errors = list(csv.reader(open('error_fd.tfs'), delimiter=' '))";
+	print, text="	errorsHEAD = [x for x in errors if x[0] != '' ]";
+	print, text="	errorsHeaders = [y for y in [x for x in errorsHEAD if x[0] == '*'][0][1:] if y!='']";
+	print, text="	errorsBODY = [x for x in errors if x[0] == '' ]";
+	print, text="";
+	print, text="	twiss = list(csv.reader(open('twiss_fd.tfs'), delimiter=' '))";
+	print, text="	twiss[:] = list(map(lambda line: [x for x in line if x != ''], [x for x in twiss if x[0] == ''] ))";
+	print, text="	twiss[:] = list(map(lambda line: [line[0],float(line[1]),float(line[2])], twiss))";
+	print, text="";
+	print, text="	for line in errorsBODY:";
+	print, text="		if line[0] == '':";
+	print, text="			x = [ f for f in twiss if f[0] == line[1] ][0][1]";
+	print, text="			y = [ f for f in twiss if f[0] == line[1] ][0][2]";
+	print, text="			iK0L  = find_index_with_whitespaces(line,errorsHeaders.index('K0L'))";
+	print, text="			iK0SL = find_index_with_whitespaces(line,errorsHeaders.index('K0SL'))";
+	print, text="			iK1L  = find_index_with_whitespaces(line,errorsHeaders.index('K1L'))";
+	print, text="			iK1SL = find_index_with_whitespaces(line,errorsHeaders.index('K1SL'))";
+	print, text="			iK2L  = find_index_with_whitespaces(line,errorsHeaders.index('K2L'))";
+	print, text="			iK2SL = find_index_with_whitespaces(line,errorsHeaders.index('K2SL'))";
+	print, text="			iK3L  = find_index_with_whitespaces(line,errorsHeaders.index('K3L'))";
+	print, text="			iK3SL = find_index_with_whitespaces(line,errorsHeaders.index('K3SL'))";
+	print, text="			iK4L  = find_index_with_whitespaces(line,errorsHeaders.index('K4L'))";
+	print, text="			iK4SL = find_index_with_whitespaces(line,errorsHeaders.index('K4SL'))";
+	print, text="			iK5L  = find_index_with_whitespaces(line,errorsHeaders.index('K5L'))";
+	print, text="			iK5SL = find_index_with_whitespaces(line,errorsHeaders.index('K5SL'))";
+	print, text="			K0L  = float(line[iK0L])";
+	print, text="			K0SL = float(line[iK0SL])";
+	print, text="			K1L  = float(line[iK1L])";
+	print, text="			K1SL = float(line[iK1SL])";
+	print, text="			K2L  = float(line[iK2L])";
+	print, text="			K2SL = float(line[iK2SL])";
+	print, text="			K3L  = float(line[iK3L])";
+	print, text="			K3SL = float(line[iK3SL])";
+	print, text="			K4L  = float(line[iK4L])";  
+	print, text="			K4SL = float(line[iK4SL])";
+	print, text="			K5L  = float(line[iK5L])";  
+	print, text="			K5SL = float(line[iK5SL])";
+	if (ON_cancelFD_b2tob1<>0){
+	print, text="			FDK1LinK0L    = K1L  * (x)            # feed-down in b1 coming from b2";
+	print, text="			K0L           = K0L  - FDK1LinK0L     # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_b2toa1<>0){
+	print, text="			FDK1LinK0SL   = K1L  * (y)            # feed-down in a1 coming from b2";
+	print, text="			K0SL          = K0SL - FDK1LinK0SL    # cancel feed-down in a1";
+	};
+	if (ON_cancelFD_a2tob1<>0){
+	print, text="			FDK1SLinK0L   = K1SL * (-y)           # feed-down in b1 coming from a2";
+	print, text="			K0L           = K0L  - FDK1SLinK0L    # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_a2toa1<>0){
+	print, text="			FDK1SLinK0SL  = K1SL * (x)            # feed-down in a1 coming from a2";
+	print, text="			K0SL          = K0SL - FDK1SLinK0SL   # cancel feed-down in a1";
+	};
+	if (ON_cancelFD_b3tob2<>0){
+	print, text="			FDK2LinK1L    = K2L  * (x)                     # feed-down in b2 coming from b3";
+	print, text="			K1L           = K1L  - FDK2LinK1L              # cancel feed-down in b2";
+	print, text="			K0L           = K0L  - FDK2LinK1L*(-x)         # compensate for spurious b1 we now introduced via new feed-down of -FDK2LinK1L";
+	print, text="			K0SL          = K0SL - FDK2LinK1L*(-y)         # compensate for spurious a1 we now introduced via new feed-down of -FDK2LinK1L";
+	};
+	if (ON_cancelFD_b3toa2<>0){
+	print, text="			FDK2LinK1SL   = K2L  * (y)                     # feed-down in a2 coming from b3";
+	print, text="			K1SL          = K1SL - FDK2LinK1SL             # cancel feed-down in a2";
+	print, text="			K0L           = K0L  - FDK2LinK1SL*(y)         # compensate for spurious b1 we now introduced via new feed-down of -FDK2LinK1SL";
+	print, text="			K0SL          = K0SL - FDK2LinK1SL*(-x)        # compensate for spurious a1 we now introduced via new feed-down of -FDK2LinK1SL";
+	};
+	if (ON_cancelFD_b3tob1<>0){
+	print, text="			FDK2LinK0L    = K2L  * (((x - y)*(x + y))/2.)  # feed-down in b1 coming from b3";
+	print, text="			K0L           = K0L  - FDK2LinK0L              # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_b3toa1<>0){
+	print, text="			FDK2LinK0SL   = K2L  * (x*y)                   # feed-down in a1 coming from b3";
+	print, text="			K0SL          = K0SL - FDK2LinK0SL             # cancel feed-down in a1";
+	};
+	if (ON_cancelFD_a3tob2<>0){
+	print, text="			FDK2SLinK1L   = K2SL * (-y)                    # feed-down in b2 coming from a3";
+	print, text="			K1L           = K1L  - FDK2SLinK1L             # cancel feed-down in b2";
+	print, text="			K0L           = K0L  - FDK2SLinK1L*(-x)        # compensate for spurious b1 we now introduced via new feed-down of -FDK2SLinK1L";
+	print, text="			K0SL          = K0SL - FDK2SLinK1L*(-y)        # compensate for spurious a1 we now introduced via new feed-down of -FDK2SLinK1L";
+	};
+	if (ON_cancelFD_a3toa2<>0){
+	print, text="			FDK2SLinK1SL  = K2SL * (x)                     # feed-down in a2 coming from a3";
+	print, text="			K1SL          = K1SL - FDK2SLinK1SL            # cancel feed-down in a2";
+	print, text="			K0L           = K0L  - FDK2SLinK1SL*(y)        # compensate for spurious b1 we now introduced via new feed-down of -FDK2SLinK1SL";
+	print, text="			K0SL          = K0SL - FDK2SLinK1SL*(-x)       # compensate for spurious a1 we now introduced via new feed-down of -FDK2SLinK1SL";
+	};
+	if (ON_cancelFD_a3tob1<>0){
+	print, text="			FDK2SLinK0L   = K2SL * (-(x*y))                # feed-down in b1 coming from a3";
+	print, text="			K0L           = K0L  - FDK2SLinK0L             # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_a3toa1<>0){
+	print, text="			FDK2SLinK0SL  = K2SL * (((x - y)*(x + y))/2.)  # feed-down in a1 coming from a3";
+	print, text="			K0SL          = K0SL - FDK2SLinK0SL            # cancel feed-down in a1";
+	};
+	if (ON_cancelFD_b4tob3<>0){
+	print, text="			FDK3LinK2L    = K3L  * (x)                                 # feed-down in b3 coming from b4";
+	print, text="			K2L           = K2L  - FDK3LinK2L                          # cancel feed-down in b3";
+	print, text="			K1L           = K1L  - FDK3LinK2L*(-x)                     # compensate for spurious b2 we now introduced via new feed-down of -FDK3LinK2L";
+	print, text="			K1SL          = K1SL - FDK3LinK2L*(-y)                     # compensate for spurious a2 we now introduced via new feed-down of -FDK3LinK2L";
+	print, text="			K0L           = K0L  - FDK3LinK2L*(((x - y)*(x + y))/2.)   # compensate for spurious b1 we now introduced via new feed-down of -FDK3LinK2L";
+	print, text="			K0SL          = K0SL - FDK3LinK2L*(x*y)                    # compensate for spurious a1 we now introduced via new feed-down of -FDK3LinK2L";
+	};
+	if (ON_cancelFD_b4toa3<>0){
+	print, text="			FDK3LinK2SL   = K3L  * (y)                                 # feed-down in a3 coming from b4";
+	print, text="			K2SL          = K2SL - FDK3LinK2SL                         # cancel feed-down in a3";
+	print, text="			K1L           = K1L  - FDK3LinK2SL*(y)                     # compensate for spurious b2 we now introduced via new feed-down of -FDK3LinK2SL";
+	print, text="			K1SL          = K1SL - FDK3LinK2SL*(-x)                    # compensate for spurious a2 we now introduced via new feed-down of -FDK3LinK2SL";
+	print, text="			K0L           = K0L  - FDK3LinK2SL*(-(x*y))                # compensate for spurious b1 we now introduced via new feed-down of -FDK3LinK2SL";
+	print, text="			K0SL          = K0SL - FDK3LinK2SL*(((x - y)*(x + y))/2.)  # compensate for spurious a1 we now introduced via new feed-down of -FDK3LinK2SL";
+	};
+	if (ON_cancelFD_b4tob2<>0){
+	print, text="			FDK3LinK1L    = K3L  * (((x - y)*(x + y))/2.)              # feed-down in b2 coming from b4";
+	print, text="			K1L           = K1L  - FDK3LinK1L                          # cancel feed-down in b2";
+	print, text="			K0L           = K0L  - FDK3LinK1L*(-x)                     # compensate for spurious b1 we now introduced via new feed-down of -FDK3LinK1L";
+	print, text="			K0SL          = K0SL - FDK3LinK1L*(-y)                     # compensate for spurious a1 we now introduced via new feed-down of -FDK3LinK1L";
+	};
+	if (ON_cancelFD_b4toa2<>0){
+	print, text="			FDK3LinK1SL   = K3L  * (x*y)                               # feed-down in a2 coming from b4";
+	print, text="			K1SL          = K1SL - FDK3LinK1SL                         # cancel feed-down in a2";
+	print, text="			K0L           = K0L  - FDK3LinK1SL*(y)                     # compensate for spurious b1 we now introduced via new feed-down of -FDK3LinK1SL";
+	print, text="			K0SL          = K0SL - FDK3LinK1SL*(-x)                    # compensate for spurious a1 we now introduced via new feed-down of -FDK3LinK1SL";
+	};
+	if (ON_cancelFD_b4tob1<>0){
+	print, text="			FDK3LinK0L    = K3L  * ((x**3 - 3*x*y**2)/6.)              # feed-down in b1 coming from b4";
+	print, text="			K0L           = K0L  - FDK3LinK0L                          # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_b4toa1<>0){
+	print, text="			FDK3LinK0SL   = K3L  * (-(y*(-3*x**2 + y**2))/6.)          # feed-down in a1 coming from b4";
+	print, text="			K0SL          = K0SL - FDK3LinK0SL                         # cancel feed-down in a1";
+	};
+	if (ON_cancelFD_a4tob3<>0){
+	print, text="			FDK3SLinK2L   = K3SL * (-y)                                # feed-down in b3 coming from a4";
+	print, text="			K2L           = K2L  - FDK3SLinK2L                         # cancel feed-down in b3";
+	print, text="			K1L           = K1L  - FDK3SLinK2L*(-x)                    # compensate for spurious b2 we now introduced via new feed-down of -FDK3SLinK2L";
+	print, text="			K1SL          = K1SL - FDK3SLinK2L*(-y)                    # compensate for spurious a2 we now introduced via new feed-down of -FDK3SLinK2L";
+	print, text="			K0L           = K0L  - FDK3SLinK2L*(((x - y)*(x + y))/2.)  # compensate for spurious b1 we now introduced via new feed-down of -FDK3SLinK2L";
+	print, text="			K0SL          = K0SL - FDK3SLinK2L*(x*y)                   # compensate for spurious a1 we now introduced via new feed-down of -FDK3SLinK2L";
+	};
+	if (ON_cancelFD_a4toa3<>0){
+	print, text="			FDK3SLinK2SL  = K3SL * (x)                                 # feed-down in a3 coming from a4";
+	print, text="			K2SL          = K2SL - FDK3SLinK2SL                        # cancel feed-down in a3";
+	print, text="			K1L           = K1L  - FDK3SLinK2SL*(y)                    # compensate for spurious b2 we now introduced via new feed-down of -FDK3SLinK2SL";
+	print, text="			K1SL          = K1SL - FDK3SLinK2SL*(-x)                   # compensate for spurious a2 we now introduced via new feed-down of -FDK3SLinK2SL";
+	print, text="			K0L           = K0L  - FDK3SLinK2SL*(-(x*y))               # compensate for spurious b1 we now introduced via new feed-down of -FDK3SLinK2SL";
+	print, text="			K0SL          = K0SL - FDK3SLinK2SL*(((x - y)*(x + y))/2.) # compensate for spurious a1 we now introduced via new feed-down of -FDK3SLinK2SL";
+	};
+	if (ON_cancelFD_a4tob2<>0){
+	print, text="			FDK3SLinK1L   = K3SL * (-(x*y))                            # feed-down in b2 coming from a4";
+	print, text="			K1L           = K1L  - FDK3SLinK1L                         # cancel feed-down in b2";
+	print, text="			K0L           = K0L  - FDK3SLinK1L*(-x)                    # compensate for spurious b1 we now introduced via new feed-down of -FDK3SLinK1L";
+	print, text="			K0SL          = K0SL - FDK3SLinK1L*(-y)                    # compensate for spurious a1 we now introduced via new feed-down of -FDK3SLinK1L";
+	};
+	if (ON_cancelFD_a4toa2<>0){
+	print, text="			FDK3SLinK1SL  = K3SL * (((x - y)*(x + y))/2.)              # feed-down in a2 coming from a4";
+	print, text="			K1SL          = K1SL - FDK3SLinK1SL                        # cancel feed-down in a2";
+	print, text="			K0L           = K0L  - FDK3SLinK1SL*(y)                    # compensate for spurious b1 we now introduced via new feed-down of -FDK3SLinK1SL";
+	print, text="			K0SL          = K0SL - FDK3SLinK1SL*(-x)                   # compensate for spurious a1 we now introduced via new feed-down of -FDK3SLinK1SL";
+	};
+	if (ON_cancelFD_a4tob1<>0){
+	print, text="			FDK3SLinK0L   = K3SL * ((-3*x**2*y + y**3)/6.)             # feed-down in b1 coming from a4";
+	print, text="			K0L           = K0L  - FDK3SLinK0L                         # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_a4toa1<>0){
+	print, text="			FDK3SLinK0SL  = K3SL * ((x**3 - 3*x*y**2)/6.)              # feed-down in a1 coming from a4";
+	print, text="			K0SL          = K0SL - FDK3SLinK0SL                        # cancel feed-down in a1";
+	};
+	if (ON_cancelFD_b5tob4<>0){
+	print, text="			FDK4LinK3L    = K4L  * (x)                                     # feed-down in b4 coming from b5";
+	print, text="			K3L           = K3L  - FDK4LinK3L                              # cancel feed-down in b4";
+	print, text="			K2L           = K2L  - FDK4LinK3L*(-x)                         # compensate for spurious b3 we now introduced via new feed-down of -FDK4LinK3L";
+	print, text="			K2SL          = K2SL - FDK4LinK3L*(-y)                         # compensate for spurious a3 we now introduced via new feed-down of -FDK4LinK3L";
+	print, text="			K1L           = K1L  - FDK4LinK3L*(((x - y)*(x + y))/2.)       # compensate for spurious b2 we now introduced via new feed-down of -FDK4LinK3L";
+	print, text="			K1SL          = K1SL - FDK4LinK3L*(x*y)                        # compensate for spurious a2 we now introduced via new feed-down of -FDK4LinK3L";
+	print, text="			K0L           = K0L  - FDK4LinK3L*(-(x*(x**2 - 3*y**2))/6.)    # compensate for spurious b1 we now introduced via new feed-down of -FDK4LinK3L";
+	print, text="			K0SL          = K0SL - FDK4LinK3L*((-3*x**2*y + y**3)/6.)      # compensate for spurious a1 we now introduced via new feed-down of -FDK4LinK3L";
+	};
+	if (ON_cancelFD_b5toa4<>0){
+	print, text="			FDK4LinK3SL   = K4L  * (y)                                     # feed-down in a4 coming from b5";
+	print, text="			K3SL          = K3SL - FDK4LinK3SL                             # cancel feed-down in a4";
+	print, text="			K2L           = K2L  - FDK4LinK3SL*(y)                         # compensate for spurious b3 we now introduced via new feed-down of -FDK4LinK3SL";
+	print, text="			K2SL          = K2SL - FDK4LinK3SL*(-x)                        # compensate for spurious a3 we now introduced via new feed-down of -FDK4LinK3SL";
+	print, text="			K1L           = K1L  - FDK4LinK3SL*(-(x*y))                    # compensate for spurious b2 we now introduced via new feed-down of -FDK4LinK3SL";
+	print, text="			K1SL          = K1SL - FDK4LinK3SL*(((x - y)*(x + y))/2.)      # compensate for spurious a2 we now introduced via new feed-down of -FDK4LinK3SL";
+	print, text="			K0L           = K0L  - FDK4LinK3SL*(-(y*(-3*x**2 + y**2))/6.)  # compensate for spurious b1 we now introduced via new feed-down of -FDK4LinK3SL";
+	print, text="			K0SL          = K0SL - FDK4LinK3SL*(-(x*(x**2 - 3*y**2))/6.)   # compensate for spurious a1 we now introduced via new feed-down of -FDK4LinK3SL";
+	};
+	if (ON_cancelFD_b5tob3<>0){
+	print, text="			FDK4LinK2L    = K4L  * (((x - y)*(x + y))/2.)                  # feed-down in b3 coming from b5";
+	print, text="			K2L           = K2L  - FDK4LinK2L                              # cancel feed-down in b3";
+	print, text="			K1L           = K1L  - FDK4LinK2L*(-x)                         # compensate for spurious b2 we now introduced via new feed-down of -FDK4LinK2L";
+	print, text="			K1SL          = K1SL - FDK4LinK2L*(-y)                         # compensate for spurious a2 we now introduced via new feed-down of -FDK4LinK2L";
+	print, text="			K0L           = K0L  - FDK4LinK2L*(((x - y)*(x + y))/2.)       # compensate for spurious b1 we now introduced via new feed-down of -FDK4LinK2L";
+	print, text="			K0SL          = K0SL - FDK4LinK2L*(x*y)                        # compensate for spurious a1 we now introduced via new feed-down of -FDK4LinK2L";
+	};
+	if (ON_cancelFD_b5toa3<>0){
+	print, text="			FDK4LinK2SL   = K4L  * (x*y)                                   # feed-down in a3 coming from b5";
+	print, text="			K2SL          = K2SL - FDK4LinK2SL                             # cancel feed-down in a3";
+	print, text="			K1L           = K1L  - FDK4LinK2SL*(y)                         # compensate for spurious b2 we now introduced via new feed-down of -FDK4LinK2SL";
+	print, text="			K1SL          = K1SL - FDK4LinK2SL*(-x)                        # compensate for spurious a2 we now introduced via new feed-down of -FDK4LinK2SL";
+	print, text="			K0L           = K0L  - FDK4LinK2SL*(-(x*y))                    # compensate for spurious b1 we now introduced via new feed-down of -FDK4LinK2SL";
+	print, text="			K0SL          = K0SL - FDK4LinK2SL*(((x - y)*(x + y))/2.)      # compensate for spurious a1 we now introduced via new feed-down of -FDK4LinK2SL";
+	};
+	if (ON_cancelFD_b5tob2<>0){
+	print, text="			FDK4LinK1L    = K4L  * ((x**3 - 3*x*y**2)/6.)                  # feed-down in b2 coming from b5";
+	print, text="			K1L           = K1L  - FDK4LinK1L                              # cancel feed-down in b2";
+	print, text="			K0L           = K0L  - FDK4LinK1L*(-x)                         # compensate for spurious b1 we now introduced via new feed-down of -FDK4LinK1L";
+	print, text="			K0SL          = K0SL - FDK4LinK1L*(-y)                         # compensate for spurious a1 we now introduced via new feed-down of -FDK4LinK1L";
+	};
+	if (ON_cancelFD_b5toa2<>0){
+	print, text="			FDK4LinK1SL   = K4L  * (-(y*(-3*x**2 + y**2))/6.)              # feed-down in a2 coming from b5";
+	print, text="			K1SL          = K1SL - FDK4LinK1SL                             # cancel feed-down in a2";
+	print, text="			K0L           = K0L  - FDK4LinK1SL*(y)                         # compensate for spurious b1 we now introduced via new feed-down of -FDK4LinK1SL";
+	print, text="			K0SL          = K0SL - FDK4LinK1SL*(-x)                        # compensate for spurious a1 we now introduced via new feed-down of -FDK4LinK1SL";
+	};
+	if (ON_cancelFD_b5tob1<>0){
+	print, text="			FDK4LinK0L    = K4L  * ((x**4 - 6*x**2*y**2 + y**4)/24.)       # feed-down in b1 coming from b5";
+	print, text="			K0L           = K0L  - FDK4LinK0L                              # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_b5toa1<>0){
+	print, text="			FDK4LinK0SL   = K4L  * ((x*(x - y)*y*(x + y))/6.)              # feed-down in a1 coming from b5";
+	print, text="			K0SL          = K0SL - FDK4LinK0SL                             # cancel feed-down in a1";
+	};
+	if (ON_cancelFD_a5tob4<>0){
+	print, text="			FDK4SLinK3L   = K4SL * (-y)                                    # feed-down in b4 coming from a5";
+	print, text="			K3L           = K3L  - FDK4SLinK3L                             # cancel feed-down in b4";
+	print, text="			K2L           = K2L  - FDK4SLinK3L*(-x)                        # compensate for spurious b3 we now introduced via new feed-down of -FDK4SLinK3L";
+	print, text="			K2SL          = K2SL - FDK4SLinK3L*(-y)                        # compensate for spurious a3 we now introduced via new feed-down of -FDK4SLinK3L";
+	print, text="			K1L           = K1L  - FDK4SLinK3L*(((x - y)*(x + y))/2.)      # compensate for spurious b2 we now introduced via new feed-down of -FDK4SLinK3L";
+	print, text="			K1SL          = K1SL - FDK4SLinK3L*(x*y)                       # compensate for spurious a2 we now introduced via new feed-down of -FDK4SLinK3L";
+	print, text="			K0L           = K0L  - FDK4SLinK3L*(-(x*(x**2 - 3*y**2))/6.)   # compensate for spurious b1 we now introduced via new feed-down of -FDK4SLinK3L";
+	print, text="			K0SL          = K0SL - FDK4SLinK3L*((-3*x**2*y + y**3)/6.)     # compensate for spurious a1 we now introduced via new feed-down of -FDK4SLinK3L";
+	};
+	if (ON_cancelFD_a5toa4<>0){
+	print, text="			FDK4SLinK3SL  = K4SL * (x)                                     # feed-down in a4 coming from a5";
+	print, text="			K3SL          = K3SL - FDK4SLinK3SL                            # cancel feed-down in a4";
+	print, text="			K2L           = K2L  - FDK4SLinK3SL*(y)                        # compensate for spurious b3 we now introduced via new feed-down of -FDK4SLinK3SL";
+	print, text="			K2SL          = K2SL - FDK4SLinK3SL*(-x)                       # compensate for spurious a3 we now introduced via new feed-down of -FDK4SLinK3SL";
+	print, text="			K1L           = K1L  - FDK4SLinK3SL*(-(x*y))                   # compensate for spurious b2 we now introduced via new feed-down of -FDK4SLinK3SL";
+	print, text="			K1SL          = K1SL - FDK4SLinK3SL*(((x - y)*(x + y))/2.)     # compensate for spurious a2 we now introduced via new feed-down of -FDK4SLinK3SL";
+	print, text="			K0L           = K0L  - FDK4SLinK3SL*(-(y*(-3*x**2 + y**2))/6.) # compensate for spurious b1 we now introduced via new feed-down of -FDK4SLinK3SL";
+	print, text="			K0SL          = K0SL - FDK4SLinK3SL*(-(x*(x**2 - 3*y**2))/6.)  # compensate for spurious a1 we now introduced via new feed-down of -FDK4SLinK3SL";
+	};
+	if (ON_cancelFD_a5tob3<>0){
+	print, text="			FDK4SLinK2L   = K4SL * (-(x*y))                                # feed-down in b3 coming from a5";
+	print, text="			K2L           = K2L  - FDK4SLinK2L                             # cancel feed-down in b3";
+	print, text="			K1L           = K1L  - FDK4SLinK2L*(-x)                        # compensate for spurious b2 we now introduced via new feed-down of -FDK4SLinK2L";
+	print, text="			K1SL          = K1SL - FDK4SLinK2L*(-y)                        # compensate for spurious a2 we now introduced via new feed-down of -FDK4SLinK2L";
+	print, text="			K0L           = K0L  - FDK4SLinK2L*(((x - y)*(x + y))/2.)      # compensate for spurious b1 we now introduced via new feed-down of -FDK4SLinK2L";
+	print, text="			K0SL          = K0SL - FDK4SLinK2L*(x*y)                       # compensate for spurious a1 we now introduced via new feed-down of -FDK4SLinK2L";
+	};
+	if (ON_cancelFD_a5toa3<>0){
+	print, text="			FDK4SLinK2SL  = K4SL * (((x - y)*(x + y))/2.)                  # feed-down in a3 coming from a5";
+	print, text="			K2SL          = K2SL - FDK4SLinK2SL                            # cancel feed-down in a3";
+	print, text="			K1L           = K1L  - FDK4SLinK2SL*(y)                        # compensate for spurious b2 we now introduced via new feed-down of -FDK4SLinK2SL";
+	print, text="			K1SL          = K1SL - FDK4SLinK2SL*(-x)                       # compensate for spurious a2 we now introduced via new feed-down of -FDK4SLinK2SL";
+	print, text="			K0L           = K0L  - FDK4SLinK2SL*(-(x*y))                   # compensate for spurious b1 we now introduced via new feed-down of -FDK4SLinK2SL";
+	print, text="			K0SL          = K0SL - FDK4SLinK2SL*(((x - y)*(x + y))/2.)     # compensate for spurious a1 we now introduced via new feed-down of -FDK4SLinK2SL";
+	};
+	if (ON_cancelFD_a5tob2<>0){
+	print, text="			FDK4SLinK1L   = K4SL * ((-3*x**2*y + y**3)/6.)                 # feed-down in b2 coming from a5";
+	print, text="			K1L           = K1L  - FDK4SLinK1L                             # cancel feed-down in b2";
+	print, text="			K0L           = K0L  - FDK4SLinK1L*(-x)                        # compensate for spurious b1 we now introduced via new feed-down of -FDK4SLinK1L";
+	print, text="			K0SL          = K0SL - FDK4SLinK1L*(-y)                        # compensate for spurious a1 we now introduced via new feed-down of -FDK4SLinK1L";
+	};
+	if (ON_cancelFD_a5toa2<>0){
+	print, text="			FDK4SLinK1SL  = K4SL * ((x**3 - 3*x*y**2)/6.)                  # feed-down in a2 coming from a5";
+	print, text="			K1SL          = K1SL - FDK4SLinK1SL                            # cancel feed-down in a2";
+	print, text="			K0L           = K0L  - FDK4SLinK1SL*(y)                        # compensate for spurious b1 we now introduced via new feed-down of -FDK4SLinK1SL";
+	print, text="			K0SL          = K0SL - FDK4SLinK1SL*(-x)                       # compensate for spurious a1 we now introduced via new feed-down of -FDK4SLinK1SL";
+	};
+	if (ON_cancelFD_a5tob1<>0){
+	print, text="			FDK4SLinK0L   = K4SL * ((-(x**3*y) + x*y**3)/6.)               # feed-down in b1 coming from a5";
+	print, text="			K0L           = K0L  - FDK4SLinK0L                             # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_a5toa1<>0){
+	print, text="			FDK4SLinK0SL  = K4SL * ((x**4 - 6*x**2*y**2 + y**4)/24.)       # feed-down in a1 coming from a5";
+	print, text="			K0SL          = K0SL - FDK4SLinK0SL                            # cancel feed-down in a1";
+	};
+	if (ON_cancelFD_b6tob5<>0){
+	print, text="			FDK5LinK4L    = K5L  * (x)                                               # feed-down in b5 coming from b6";
+	print, text="			K4L           = K4L  - FDK5LinK4L                                        # cancel feed-down in b5";
+	print, text="			K3L           = K3L  - FDK5LinK4L*(-x)                                   # compensate for spurious b4 we now introduced via new feed-down of -FDK5LinK4L";
+	print, text="			K3SL          = K3SL - FDK5LinK4L*(-y)                                   # compensate for spurious a4 we now introduced via new feed-down of -FDK5LinK4L";
+	print, text="			K2L           = K2L  - FDK5LinK4L*(((x - y)*(x + y))/2.)                 # compensate for spurious b3 we now introduced via new feed-down of -FDK5LinK4L";
+	print, text="			K2SL          = K2SL - FDK5LinK4L*(x*y)                                  # compensate for spurious a3 we now introduced via new feed-down of -FDK5LinK4L";
+	print, text="			K1L           = K1L  - FDK5LinK4L*(-(x*(x**2 - 3*y**2))/6.)              # compensate for spurious b2 we now introduced via new feed-down of -FDK5LinK4L";
+	print, text="			K1SL          = K1SL - FDK5LinK4L*((-3*x**2*y + y**3)/6.)                # compensate for spurious a2 we now introduced via new feed-down of -FDK5LinK4L";
+	print, text="			K0L           = K0L  - FDK5LinK4L*((x**4 - 6*x**2*y**2 + y**4)/24.)      # compensate for spurious b1 we now introduced via new feed-down of -FDK5LinK4L";
+	print, text="			K0SL          = K0SL - FDK5LinK4L*((x*(x - y)*y*(x + y))/6.)             # compensate for spurious a1 we now introduced via new feed-down of -FDK5LinK4L";
+	};
+	if (ON_cancelFD_b6toa5<>0){
+	print, text="			FDK5LinK4SL   = K5L  * (y)                                               # feed-down in a5 coming from b6";
+	print, text="			K4SL          = K4SL - FDK5LinK4SL                                       # cancel feed-down in a5";
+	print, text="			K3L           = K3L  - FDK5LinK4SL*(y)                                   # compensate for spurious b4 we now introduced via new feed-down of -FDK5LinK4SL";
+	print, text="			K3SL          = K3SL - FDK5LinK4SL*(-x)                                  # compensate for spurious a4 we now introduced via new feed-down of -FDK5LinK4SL";
+	print, text="			K2L           = K2L  - FDK5LinK4SL*(-(x*y))                              # compensate for spurious b3 we now introduced via new feed-down of -FDK5LinK4SL";
+	print, text="			K2SL          = K2SL - FDK5LinK4SL*(((x - y)*(x + y))/2.)                # compensate for spurious a3 we now introduced via new feed-down of -FDK5LinK4SL";
+	print, text="			K1L           = K1L  - FDK5LinK4SL*(-(y*(-3*x**2 + y**2))/6.)            # compensate for spurious b2 we now introduced via new feed-down of -FDK5LinK4SL";
+	print, text="			K1SL          = K1SL - FDK5LinK4SL*(-(x*(x**2 - 3*y**2))/6.)             # compensate for spurious a2 we now introduced via new feed-down of -FDK5LinK4SL";
+	print, text="			K0L           = K0L  - FDK5LinK4SL*((-(x**3*y) + x*y**3)/6.)             # compensate for spurious b1 we now introduced via new feed-down of -FDK5LinK4SL";
+	print, text="			K0SL          = K0SL - FDK5LinK4SL*((x**4 - 6*x**2*y**2 + y**4)/24.)     # compensate for spurious a1 we now introduced via new feed-down of -FDK5LinK4SL";
+	};
+	if (ON_cancelFD_b6tob4<>0){
+	print, text="			FDK5LinK3L    = K5L  * (((x - y)*(x + y))/2.)                            # feed-down in b4 coming from b6";
+	print, text="			K3L           = K3L  - FDK5LinK3L                                        # cancel feed-down in b4";
+	print, text="			K2L           = K2L  - FDK5LinK3L*(-x)                                   # compensate for spurious b3 we now introduced via new feed-down of -FDK5LinK3L";
+	print, text="			K2SL          = K2SL - FDK5LinK3L*(-y)                                   # compensate for spurious a3 we now introduced via new feed-down of -FDK5LinK3L";
+	print, text="			K1L           = K1L  - FDK5LinK3L*(((x - y)*(x + y))/2.)                 # compensate for spurious b2 we now introduced via new feed-down of -FDK5LinK3L";
+	print, text="			K1SL          = K1SL - FDK5LinK3L*(x*y)                                  # compensate for spurious a2 we now introduced via new feed-down of -FDK5LinK3L";
+	print, text="			K0L           = K0L  - FDK5LinK3L*(-(x*(x**2 - 3*y**2))/6.)              # compensate for spurious b1 we now introduced via new feed-down of -FDK5LinK3L";
+	print, text="			K0SL          = K0SL - FDK5LinK3L*((-3*x**2*y + y**3)/6.)                # compensate for spurious a1 we now introduced via new feed-down of -FDK5LinK3L";
+	};
+	if (ON_cancelFD_b6toa4<>0){
+	print, text="			FDK5LinK3SL   = K5L  * (x*y)                                             # feed-down in a4 coming from b6";
+	print, text="			K3SL          = K3SL - FDK5LinK3SL                                       # cancel feed-down in a4";
+	print, text="			K2L           = K2L  - FDK5LinK3SL*(y)                                   # compensate for spurious b3 we now introduced via new feed-down of -FDK5LinK3SL";
+	print, text="			K2SL          = K2SL - FDK5LinK3SL*(-x)                                  # compensate for spurious a3 we now introduced via new feed-down of -FDK5LinK3SL";
+	print, text="			K1L           = K1L  - FDK5LinK3SL*(-(x*y))                              # compensate for spurious b2 we now introduced via new feed-down of -FDK5LinK3SL";
+	print, text="			K1SL          = K1SL - FDK5LinK3SL*(((x - y)*(x + y))/2.)                # compensate for spurious a2 we now introduced via new feed-down of -FDK5LinK3SL";
+	print, text="			K0L           = K0L  - FDK5LinK3SL*(-(y*(-3*x**2 + y**2))/6.)            # compensate for spurious b1 we now introduced via new feed-down of -FDK5LinK3SL";
+	print, text="			K0SL          = K0SL - FDK5LinK3SL*(-(x*(x**2 - 3*y**2))/6.)             # compensate for spurious a1 we now introduced via new feed-down of -FDK5LinK3SL";
+	};
+	if (ON_cancelFD_b6tob3<>0){
+	print, text="			FDK5LinK2L    = K5L  * ((x**3 - 3*x*y**2)/6.)                            # feed-down in b3 coming from b6";
+	print, text="			K2L           = K2L  - FDK5LinK2L                                        # cancel feed-down in b3";
+	print, text="			K1L           = K1L  - FDK5LinK2L*(-x)                                   # compensate for spurious b2 we now introduced via new feed-down of -FDK5LinK2L";
+	print, text="			K1SL          = K1SL - FDK5LinK2L*(-y)                                   # compensate for spurious a2 we now introduced via new feed-down of -FDK5LinK2L";
+	print, text="			K0L           = K0L  - FDK5LinK2L*(((x - y)*(x + y))/2.)                 # compensate for spurious b1 we now introduced via new feed-down of -FDK5LinK2L";
+	print, text="			K0SL          = K0SL - FDK5LinK2L*(x*y)                                  # compensate for spurious a1 we now introduced via new feed-down of -FDK5LinK2L";
+	};
+	if (ON_cancelFD_b6toa3<>0){
+	print, text="			FDK5LinK2SL   = K5L  * (-(y*(-3*x**2 + y**2))/6.)                        # feed-down in a3 coming from b6";
+	print, text="			K2SL          = K2SL - FDK5LinK2SL                                       # cancel feed-down in a3";
+	print, text="			K1L           = K1L  - FDK5LinK2SL*(y)                                   # compensate for spurious b2 we now introduced via new feed-down of -FDK5LinK2SL";
+	print, text="			K1SL          = K1SL - FDK5LinK2SL*(-x)                                  # compensate for spurious a2 we now introduced via new feed-down of -FDK5LinK2SL";
+	print, text="			K0L           = K0L  - FDK5LinK2SL*(-(x*y))                              # compensate for spurious b1 we now introduced via new feed-down of -FDK5LinK2SL";
+	print, text="			K0SL          = K0SL - FDK5LinK2SL*(((x - y)*(x + y))/2.)                # compensate for spurious a1 we now introduced via new feed-down of -FDK5LinK2SL";
+	};
+	if (ON_cancelFD_b6tob2<>0){
+	print, text="			FDK5LinK1L    = K5L  * ((x**4 - 6*x**2*y**2 + y**4)/24.)                 # feed-down in b2 coming from b6";
+	print, text="			K1L           = K1L  - FDK5LinK1L                                        # cancel feed-down in b2";
+	print, text="			K0L           = K0L  - FDK5LinK1L*(-x)                                   # compensate for spurious b1 we now introduced via new feed-down of -FDK5LinK1L";
+	print, text="			K0SL          = K0SL - FDK5LinK1L*(-y)                                   # compensate for spurious a1 we now introduced via new feed-down of -FDK5LinK1L";
+	};
+	if (ON_cancelFD_b6toa2<>0){
+	print, text="			FDK5LinK1SL   = K5L  * ((x*(x - y)*y*(x + y))/6.)                        # feed-down in a2 coming from b6";
+	print, text="			K1SL          = K1SL - FDK5LinK1SL                                       # cancel feed-down in a2";
+	print, text="			K0L           = K0L  - FDK5LinK1SL*(y)                                   # compensate for spurious b1 we now introduced via new feed-down of -FDK5LinK1SL";
+	print, text="			K0SL          = K0SL - FDK5LinK1SL*(-x)                                  # compensate for spurious a1 we now introduced via new feed-down of -FDK5LinK1SL";
+	};
+	if (ON_cancelFD_b6tob1<>0){
+	print, text="			FDK5LinK0L    = K5L  * ((x**5 - 10*x**3*y**2 + 5*x*y**4)/120.)           # feed-down in b1 coming from b6";
+	print, text="			K0L           = K0L  - FDK5LinK0L                                        # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_b6toa1<>0){
+	print, text="			FDK5LinK0SL   = K5L  * ((5*x**4*y - 10*x**2*y**3 + y**5)/120.)           # feed-down in a1 coming from b6";
+	print, text="			K0SL          = K0SL - FDK5LinK0SL                                       # cancel feed-down in a1";
+	};
+	if (ON_cancelFD_a6tob5<>0){
+	print, text="			FDK5SLinK4L   = K5SL * (-y)                                              # feed-down in b5 coming from a6";
+	print, text="			K4L           = K4L  - FDK5SLinK4L                                       # cancel feed-down in b5";
+	print, text="			K3L           = K3L  - FDK5SLinK4L*(-x)                                  # compensate for spurious b4 we now introduced via new feed-down of -FDK5SLinK4L";
+	print, text="			K3SL          = K3SL - FDK5SLinK4L*(-y)                                  # compensate for spurious a4 we now introduced via new feed-down of -FDK5SLinK4L";
+	print, text="			K2L           = K2L  - FDK5SLinK4L*(((x - y)*(x + y))/2.)                # compensate for spurious b3 we now introduced via new feed-down of -FDK5SLinK4L";
+	print, text="			K2SL          = K2SL - FDK5SLinK4L*(x*y)                                 # compensate for spurious a3 we now introduced via new feed-down of -FDK5SLinK4L";
+	print, text="			K1L           = K1L  - FDK5SLinK4L*(-(x*(x**2 - 3*y**2))/6.)             # compensate for spurious b2 we now introduced via new feed-down of -FDK5SLinK4L";
+	print, text="			K1SL          = K1SL - FDK5SLinK4L*((-3*x**2*y + y**3)/6.)               # compensate for spurious a2 we now introduced via new feed-down of -FDK5SLinK4L";
+	print, text="			K0L           = K0L  - FDK5SLinK4L*((x**4 - 6*x**2*y**2 + y**4)/24.)     # compensate for spurious b1 we now introduced via new feed-down of -FDK5SLinK4L";
+	print, text="			K0SL          = K0SL - FDK5SLinK4L*((x*(x - y)*y*(x + y))/6.)            # compensate for spurious a1 we now introduced via new feed-down of -FDK5SLinK4L";
+	};
+	if (ON_cancelFD_a6toa5<>0){
+	print, text="			FDK5SLinK4SL  = K5SL * (x)                                               # feed-down in a5 coming from a6";
+	print, text="			K4SL          = K4SL - FDK5SLinK4SL                                      # cancel feed-down in a5";
+	print, text="			K3L           = K3L  - FDK5SLinK4SL*(y)                                  # compensate for spurious b4 we now introduced via new feed-down of -FDK5SLinK4SL";
+	print, text="			K3SL          = K3SL - FDK5SLinK4SL*(-x)                                 # compensate for spurious a4 we now introduced via new feed-down of -FDK5SLinK4SL";
+	print, text="			K2L           = K2L  - FDK5SLinK4SL*(-(x*y))                             # compensate for spurious b3 we now introduced via new feed-down of -FDK5SLinK4SL";
+	print, text="			K2SL          = K2SL - FDK5SLinK4SL*(((x - y)*(x + y))/2.)               # compensate for spurious a3 we now introduced via new feed-down of -FDK5SLinK4SL";
+	print, text="			K1L           = K1L  - FDK5SLinK4SL*(-(y*(-3*x**2 + y**2))/6.)           # compensate for spurious b2 we now introduced via new feed-down of -FDK5SLinK4SL";
+	print, text="			K1SL          = K1SL - FDK5SLinK4SL*(-(x*(x**2 - 3*y**2))/6.)            # compensate for spurious a2 we now introduced via new feed-down of -FDK5SLinK4SL";
+	print, text="			K0L           = K0L  - FDK5SLinK4SL*((-(x**3*y) + x*y**3)/6.)            # compensate for spurious b1 we now introduced via new feed-down of -FDK5SLinK4SL";
+	print, text="			K0SL          = K0SL - FDK5SLinK4SL*((x**4 - 6*x**2*y**2 + y**4)/24.)    # compensate for spurious a1 we now introduced via new feed-down of -FDK5SLinK4SL";
+	};
+	if (ON_cancelFD_a6tob4<>0){
+	print, text="			FDK5SLinK3L   = K5SL * (-(x*y))                                          # feed-down in b4 coming from a6";
+	print, text="			K3L           = K3L  - FDK5SLinK3L                                       # cancel feed-down in b4";
+	print, text="			K2L           = K2L  - FDK5SLinK3L*(-x)                                  # compensate for spurious b3 we now introduced via new feed-down of -FDK5SLinK3L";
+	print, text="			K2SL          = K2SL - FDK5SLinK3L*(-y)                                  # compensate for spurious a3 we now introduced via new feed-down of -FDK5SLinK3L";
+	print, text="			K1L           = K1L  - FDK5SLinK3L*(((x - y)*(x + y))/2.)                # compensate for spurious b2 we now introduced via new feed-down of -FDK5SLinK3L";
+	print, text="			K1SL          = K1SL - FDK5SLinK3L*(x*y)                                 # compensate for spurious a2 we now introduced via new feed-down of -FDK5SLinK3L";
+	print, text="			K0L           = K0L  - FDK5SLinK3L*(-(x*(x**2 - 3*y**2))/6.)             # compensate for spurious b1 we now introduced via new feed-down of -FDK5SLinK3L";
+	print, text="			K0SL          = K0SL - FDK5SLinK3L*((-3*x**2*y + y**3)/6.)               # compensate for spurious a1 we now introduced via new feed-down of -FDK5SLinK3L";
+	};
+	if (ON_cancelFD_a6toa4<>0){
+	print, text="			FDK5SLinK3SL  = K5SL * (((x - y)*(x + y))/2.)                            # feed-down in a4 coming from a6";
+	print, text="			K3SL          = K3SL - FDK5SLinK3SL                                      # cancel feed-down in a4";
+	print, text="			K2L           = K2L  - FDK5SLinK3SL*(y)                                  # compensate for spurious b3 we now introduced via new feed-down of -FDK5SLinK3SL";
+	print, text="			K2SL          = K2SL - FDK5SLinK3SL*(-x)                                 # compensate for spurious a3 we now introduced via new feed-down of -FDK5SLinK3SL";
+	print, text="			K1L           = K1L  - FDK5SLinK3SL*(-(x*y))                             # compensate for spurious b2 we now introduced via new feed-down of -FDK5SLinK3SL";
+	print, text="			K1SL          = K1SL - FDK5SLinK3SL*(((x - y)*(x + y))/2.)               # compensate for spurious a2 we now introduced via new feed-down of -FDK5SLinK3SL";
+	print, text="			K0L           = K0L  - FDK5SLinK3SL*(-(y*(-3*x**2 + y**2))/6.)           # compensate for spurious b1 we now introduced via new feed-down of -FDK5SLinK3SL";
+	print, text="			K0SL          = K0SL - FDK5SLinK3SL*(-(x*(x**2 - 3*y**2))/6.)            # compensate for spurious a1 we now introduced via new feed-down of -FDK5SLinK3SL";
+	};
+	if (ON_cancelFD_a6tob3<>0){
+	print, text="			FDK5SLinK2L   = K5SL * ((-3*x**2*y + y**3)/6.)                           # feed-down in b3 coming from a6";
+	print, text="			K2L           = K2L  - FDK5SLinK2L                                       # cancel feed-down in b3";
+	print, text="			K1L           = K1L  - FDK5SLinK2L*(-x)                                  # compensate for spurious b2 we now introduced via new feed-down of -FDK5SLinK2L";
+	print, text="			K1SL          = K1SL - FDK5SLinK2L*(-y)                                  # compensate for spurious a2 we now introduced via new feed-down of -FDK5SLinK2L";
+	print, text="			K0L           = K0L  - FDK5SLinK2L*(((x - y)*(x + y))/2.)                # compensate for spurious b1 we now introduced via new feed-down of -FDK5SLinK2L";
+	print, text="			K0SL          = K0SL - FDK5SLinK2L*(x*y)                                 # compensate for spurious a1 we now introduced via new feed-down of -FDK5SLinK2L";
+	};
+	if (ON_cancelFD_a6toa3<>0){
+	print, text="			FDK5SLinK2SL  = K5SL * ((x**3 - 3*x*y**2)/6.)                            # feed-down in a3 coming from a6";
+	print, text="			K2SL          = K2SL - FDK5SLinK2SL                                      # cancel feed-down in a3";
+	print, text="			K1L           = K1L  - FDK5SLinK2SL*(y)                                  # compensate for spurious b2 we now introduced via new feed-down of -FDK5SLinK2SL";
+	print, text="			K1SL          = K1SL - FDK5SLinK2SL*(-x)                                 # compensate for spurious a2 we now introduced via new feed-down of -FDK5SLinK2SL";
+	print, text="			K0L           = K0L  - FDK5SLinK2SL*(-(x*y))                             # compensate for spurious b1 we now introduced via new feed-down of -FDK5SLinK2SL";
+	print, text="			K0SL          = K0SL - FDK5SLinK2SL*(((x - y)*(x + y))/2.)               # compensate for spurious a1 we now introduced via new feed-down of -FDK5SLinK2SL";
+	};
+	if (ON_cancelFD_a6tob2<>0){
+	print, text="			FDK5SLinK1L   = K5SL * ((-(x**3*y) + x*y**3)/6.)                         # feed-down in b2 coming from a6";
+	print, text="			K1L           = K1L  - FDK5SLinK1L                                       # cancel feed-down in b2";
+	print, text="			K0L           = K0L  - FDK5SLinK1L*(-x)                                  # compensate for spurious b1 we now introduced via new feed-down of -FDK5SLinK1L";
+	print, text="			K0SL          = K0SL - FDK5SLinK1L*(-y)                                  # compensate for spurious a1 we now introduced via new feed-down of -FDK5SLinK1L";
+	};
+	if (ON_cancelFD_a6toa2<>0){
+	print, text="			FDK5SLinK1SL  = K5SL * ((x**4 - 6*x**2*y**2 + y**4)/24.)                 # feed-down in a2 coming from a6";
+	print, text="			K1SL          = K1SL - FDK5SLinK1SL                                      # cancel feed-down in a2";
+	print, text="			K0L           = K0L  - FDK5SLinK1SL*(y)                                  # compensate for spurious b1 we now introduced via new feed-down of -FDK5SLinK1SL";
+	print, text="			K0SL          = K0SL - FDK5SLinK1SL*(-x)                                 # compensate for spurious a1 we now introduced via new feed-down of -FDK5SLinK1SL";
+	};
+	if (ON_cancelFD_a6tob1<>0){
+	print, text="			FDK5SLinK0L   = K5SL * (-(y*(5*x**4 - 10*x**2*y**2 + y**4))/120.)        # feed-down in b1 coming from a6";
+	print, text="			K0L           = K0L  - FDK5SLinK0L                                       # cancel feed-down in b1";
+	};
+	if (ON_cancelFD_a6toa1<>0){
+	print, text="			FDK5SLinK0SL  = K5SL * ((x**5 - 10*x**3*y**2 + 5*x*y**4)/120.)           # feed-down in a1 coming from a6";
+	print, text="			K0SL          = K0SL - FDK5SLinK0SL                                      # cancel feed-down in a1";
+	};
+
+	print, text="";
+	print, text="			line[iK0L]  = repr(K0L)";
+	print, text="			line[iK0SL] = repr(K0SL)";
+	print, text="			line[iK1L]  = repr(K1L)";
+	print, text="			line[iK1SL] = repr(K1SL)";
+	print, text="			line[iK2L]  = repr(K2L)";
+	print, text="			line[iK2SL] = repr(K2SL)";
+	print, text="			line[iK3L]  = repr(K3L)";
+	print, text="			line[iK3SL] = repr(K3SL)";
+	print, text="			line[iK4L]  = repr(K4L)";
+	print, text="			line[iK4SL] = repr(K4SL)";
+	print, text="";
+	print, text="	csv.writer(open('error_fd_new.tfs','w'), delimiter=' ').writerows(errorsHEAD + errorsBODY)";
+	print, text="else:";
+	print, text="	print('Warning: error_fd.tfs and/or twiss_fd.tfs is missing!\nAborted calculation of feed-down cancellation.\n')";
+	print, text="";
+	assign;
+
+	System,"python cancelfeeddown_tempcode.py";
+	System,"rm cancelfeeddown_tempcode.py";
+
+	READTABLE, file="error_fd_new.tfs", table=errtab;
+	SETERR, TABLE=errtab;
+
+	System,"rm error_fd.tfs";
+	System,"rm error_fd_new.tfs";
+	System,"rm twiss_fd.tfs";
+
+};

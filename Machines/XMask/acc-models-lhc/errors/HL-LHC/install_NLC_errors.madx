@@ -1,0 +1,72 @@
+! F.F Van der Veken 2020
+! Installing error placeholders for the non-linear corrector magnets in the CP
+
+! Install thin multipoles at CP locations for imperfections
+install_thin_CP(refname):macro={
+	refname..r: multipole;
+	print,text="installing refname..r";
+	if (mylhcbeam<3) {
+		seqedit,sequence=lhcb1;
+		install,element=refname..r,at=0,from=refname;
+		endedit;
+	};
+	seqedit,sequence=lhcb2;
+	install,element=refname..r,at=0,from=refname;
+	endedit;
+};
+
+! a2 corrector
+exec, install_thin_CP(MQSXF.3L1);
+exec, install_thin_CP(MQSXF.3R1);
+exec, install_thin_CP(MQSXF.3L5);
+exec, install_thin_CP(MQSXF.3R5);
+
+! b3 corrector
+exec, install_thin_CP(MCSXF.3L1);
+exec, install_thin_CP(MCSXF.3R1);
+exec, install_thin_CP(MCSXF.3L5);
+exec, install_thin_CP(MCSXF.3R5);
+
+! a3 corrector
+exec, install_thin_CP(MCSSXF.3L1);
+exec, install_thin_CP(MCSSXF.3R1);
+exec, install_thin_CP(MCSSXF.3L5);
+exec, install_thin_CP(MCSSXF.3R5);
+
+! b4 corrector
+exec, install_thin_CP(MCOXF.3L1);
+exec, install_thin_CP(MCOXF.3R1);
+exec, install_thin_CP(MCOXF.3L5);
+exec, install_thin_CP(MCOXF.3R5);
+
+! a4 corrector
+exec, install_thin_CP(MCOSXF.3L1);
+exec, install_thin_CP(MCOSXF.3R1);
+exec, install_thin_CP(MCOSXF.3L5);
+exec, install_thin_CP(MCOSXF.3R5);
+
+! b5 corrector
+exec, install_thin_CP(MCDXF.3L1);
+exec, install_thin_CP(MCDXF.3R1);
+exec, install_thin_CP(MCDXF.3L5);
+exec, install_thin_CP(MCDXF.3R5);
+
+! a5 corrector
+exec, install_thin_CP(MCDSXF.3L1);
+exec, install_thin_CP(MCDSXF.3R1);
+exec, install_thin_CP(MCDSXF.3L5);
+exec, install_thin_CP(MCDSXF.3R5);
+
+! b6 corrector
+exec, install_thin_CP(MCTXF.3L1);
+exec, install_thin_CP(MCTXF.3R1);
+exec, install_thin_CP(MCTXF.3L5);
+exec, install_thin_CP(MCTXF.3R5);
+
+! a6 corrector
+exec, install_thin_CP(MCTSXF.3L1);
+exec, install_thin_CP(MCTSXF.3R1);
+exec, install_thin_CP(MCTSXF.3L5);
+exec, install_thin_CP(MCTSXF.3R5);
+
+return;
