@@ -77,12 +77,15 @@ ARef.knobs   = knobs
 
 # Loading line from file
 #============================================================
-def importLine(fname):
-    
-    with open(fname, 'r') as fid:
-        input_data = json.load(fid)
-    line = xt.Line.from_dict(input_data)
-    line.particle_ref = xp.Particles.from_dict(input_data['particle_on_tracker_co'])
+def importLine(fname,force_energy = None):
+    if force_energy is None:
+        with open(fname, 'r') as fid:
+            input_data = json.load(fid)
+        line = xt.Line.from_dict(input_data)
+        line.particle_ref = xp.Particles.from_dict(input_data['particle_on_tracker_co'])
+    else:
+        line = xt.Line.from_json(fname)
+        line.particle_ref = xp.Particles(mass0=xp.PROTON_MASS_EV, q0=1, energy0=force_energy)
     return line
 #============================================================
 

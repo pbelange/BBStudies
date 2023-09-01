@@ -24,6 +24,8 @@ source ./Executables/py_BB/bin/activate
 
 # Install generic python packages
 #========================================
+pip install --upgrade pip
+pip install wheel
 pip install jupyterlab
 pip install ipywidgets
 pip install PyYAML
