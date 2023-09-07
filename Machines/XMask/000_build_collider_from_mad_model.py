@@ -71,6 +71,8 @@ collider = xmlhc.build_xsuite_collider(
 
 
 # Save to file
+if not Path('sub_lines').exists():
+    Path('sub_lines').mkdir()
 collider.to_json('sub_lines/collider_000.json')
 
 
