@@ -40,10 +40,11 @@ config_mad_model = config['config_mad']
 # Proceed with main code block
 #==========================================
 # Create mad environment
-if 'links' in config_mad_model.keys():
-    xm.make_mad_environment(links=config_mad_model['links'])
-else:
-    xm.make_mad_environment(None)
+for kk in config_mad_model['links'].keys():
+    if not Path(kk).parent.exists():
+        Path(kk).parent.mkdir()
+xm.make_mad_environment(links=config_mad_model['links'])
+
 # Start mad
 mad_b1b2 = Madx(command_log="mad_collider.log")
 mad_b4 = Madx(command_log="mad_b4.log")
@@ -70,6 +71,6 @@ collider = xmlhc.build_xsuite_collider(
 
 
 # Save to file
-collider.to_json('subp_lines/collider_000.json')
+collider.to_json('sub_lines/collider_000.json')
 
 

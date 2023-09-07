@@ -1,7 +1,9 @@
 config_mad:
     # Links to be made for tools and scripts
-    # links:
-    #   acc-models-lhc: /afs/cern.ch/eng/lhc/optics/runIII 
+    links:
+      acc-models-lhc/optics   : /Users/pbelanger/ABPLocal/BBStudies/Machines/Optics
+      acc-models-lhc/toolkit  : /Users/pbelanger/ABPLocal/BBStudies/Machines/Toolkit
+      acc-models-lhc/sequences: /Users/pbelanger/ABPLocal/BBStudies/Machines/Sequences
 
     # Optics file
     optics_file: acc-models-lhc/optics/opticsfile.32
@@ -17,7 +19,7 @@ config_mad:
     enable_imperfections: false
 
     # Enable knob synthesis (for coupling correction, if no imperfections)
-    enable_knob_synthesis: false
+    enable_knob_synthesis: true
 
     # Rename the coupling knobs to avoid conflict between b1 and b2
     # (for hllhc using old fortran code to generate the knobs)

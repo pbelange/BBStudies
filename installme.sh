@@ -76,3 +76,25 @@ pip install -e ./Executables/py_BB/FillingPatterns
 git clone https://gitlab.cern.ch/mrufolo/fillingstudies.git ./Executables/py_BB/fillingstudies
 #pip install -e ./Executables/py_wireDAQ/fillingstudies
 #=========================================
+
+
+
+# Download outsourced files
+#=========================================
+cd ./Executables/py_BB/xmask
+git submodule init
+git submodule update
+
+# Downloading sequences
+cd ../../../
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhc.seq -P Machines/Sequences/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhcb4.seq -P Machines/Sequences/
+
+# Downloading macro file
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/toolkit/macro.madx -P Machines/Toolkit/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/blob/2023/toolkit/slice.madx -P Machines/Toolkit/
+
+
+# Downloading optics
+rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/2021_V6/PROTON/opticsfile.* /afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/2021_V6/PROTON/README" ./Machines/Optics/
+#=========================================

@@ -17,9 +17,14 @@ Machines/Mask/**
 !Machines/Mask/readme.md
 !Machines/Mask/run_pymask.py
 
+
+Machines/Sequence/**
+Machines/Optics/**
+Machines/Surveys/**
+
+
 Machines/XMask/**
-!Machines/XMask/acc-models-lhc/**
-!Machines/XMask/acc-models-lhc
+
 !Machines/XMask/config.yaml
 !Machines/XMask/*.py
 !Machines/XMask/*.md

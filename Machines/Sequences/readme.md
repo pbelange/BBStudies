@@ -1,4 +1,7 @@
 
+OUTDATED. Now the sequences are downloaded in the installme.sh file
+
+
 Downloaded sequences from  https://gitlab.cern.ch/acc-models/acc-models-lhc/-/tree/2022/
 ```bash
 wget RawPermalink

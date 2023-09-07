@@ -10,7 +10,7 @@ def build_sequence(mad, mylhcbeam, **kwargs):
       f'''
       ! Get the toolkit
       call,file=
-        "acc-models-lhc/macro.madx";
+        "acc-models-lhc/toolkit/macro.madx";
       '''
       '''
       ! Build sequence
