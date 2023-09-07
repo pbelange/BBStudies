@@ -1,0 +1,52 @@
+config_mad:
+    # Links to be made for tools and scripts
+    links:
+      acc-models-lhc/optics   : /home/phbelang/abp/BBStudies/Machines/Optics
+      acc-models-lhc/toolkit  : /home/phbelang/abp/BBStudies/Machines/Toolkit
+      acc-models-lhc/sequences: /home/phbelang/abp/BBStudies/Machines/Sequences
+
+    # Optics file
+    optics_file: acc-models-lhc/optics/opticsfile.32
+
+    # Beam parameters
+    beam_config:
+      lhcb1:
+        beam_energy_tot: 6800           # [GeV]
+      lhcb2:
+        beam_energy_tot: 6800           # [GeV]
+
+    # Enable machine imperfections
+    enable_imperfections: false
+
+    # Enable knob synthesis (for coupling correction, if no imperfections)
+    enable_knob_synthesis: true
+
+    # Rename the coupling knobs to avoid conflict between b1 and b2
+    # (for hllhc using old fortran code to generate the knobs)
+    rename_coupling_knobs: true
+
+    # Optics version, for choice of correction algorithms
+    # (ver_lhc_run or ver_hllhc_optics)
+    ver_hllhc_optics: null
+    ver_lhc_run: 3.0
+
+    # Parameters for machine imperfections
+    pars_for_imperfections:
+      par_myseed: 1
+      par_correct_for_D2: 0
+      par_correct_for_MCBX: 0
+      par_on_errors_LHC: 1
+      par_off_errors_Q4_inIP15: 0
+      par_off_errors_Q5_inIP15: 0
+      par_on_errors_MBH: 1
+      par_on_errors_Q4: 1
+      par_on_errors_D2: 1
+      par_on_errors_D1: 1
+      par_on_errors_IT: 1
+      par_on_errors_MCBRD: 0
+      par_on_errors_MCBXF: 0
+      par_on_errors_NLC: 0
+      par_write_errortable: 1
+
+sanity_checks: true
+log_file: 'tree_maker.log'

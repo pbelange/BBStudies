@@ -23,9 +23,17 @@ Machines/Optics/**
 Machines/Surveys/**
 
 
-Machines/XMask/**
+Machines/XMask/Jobs/000_build_collider_from_mad/**
+!Machines/XMask/Jobs/000_build_collider_from_mad/*.py
+!Machines/XMask/Jobs/000_build_collider_from_mad/*.yaml
 
-!Machines/XMask/config.yaml
-!Machines/XMask/*.py
-!Machines/XMask/*.md
-!Machines/XMask/*.ipynb
+# !Machines/XMask/Jobs/000_build_collider_from_mad/*.py
+# !Machines/XMask/Jobs/000_build_collider_from_mad/*.yaml
+# !Machines/XMask/Jobs/000_build_collider_from_mad/*.md
+
+
+# !Machines/XMask/*.yaml
+# !Machines/XMask/*.yaml
+# !Machines/XMask/*.py
+# !Machines/XMask/*.md
+# !Machines/XMask/*.ipynb

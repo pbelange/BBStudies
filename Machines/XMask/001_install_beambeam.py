@@ -4,7 +4,7 @@ import xtrack as xt
 import xmask as xm
 
 # Load collider
-collider = xt.Multiline.from_json('collider_00_from_mad.json')
+collider = xt.Multiline.from_json('sub_lines/collider_000.json')
 
 # Read beam-beam config from config file
 with open('config.yaml','r') as fid:
@@ -25,4 +25,4 @@ collider.install_beambeam_interactions(
     sigmaz=config_bb['sigma_z'])
 
 # Save to file
-collider.to_json('collider_01_bb_off.json')
+collider.to_json('sub_lines/collider_001.json')
