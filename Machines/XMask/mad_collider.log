@@ -1,0 +1,71 @@
+mylhcbeam = 1;
+
+      ! Get the toolkit
+      call,file=
+        "acc-models-lhc/toolkit/macro.madx";
+      
+      ! Build sequence
+      option, -echo,-warn,-info;
+      if (mylhcbeam==4){
+        call,file="acc-models-lhc/sequences/lhcb4.seq";
+      } else {
+        call,file="acc-models-lhc/sequences/lhc.seq";
+      };
+      option, -echo, warn,-info;
+      
+      ! Slice nominal sequence
+      exec, myslice;
+      ;
+
+      !Cycling w.r.t. to IP3 (mandatory to find closed orbit in collision in the presence of errors)
+      if (mylhcbeam<3){
+        seqedit, sequence=lhcb1; flatten; cycle, start=IP3; flatten; endedit;
+      };
+      seqedit, sequence=lhcb2; flatten; cycle, start=IP3; flatten; endedit;
+
+      ! Set twiss formats for MAD-X parts (macro from opt. toolkit)
+      exec, twiss_opt;
+
+
+      ;
+call, file="acc-models-lhc/optics/opticsfile.32";
+on_alice := on_alice_normalized * 7000./nrj;
+on_lhcb := on_lhcb_normalized * 7000./nrj;
+bv_aux = 1;
+
+    beam, particle=proton,sequence=lhcb1,
+        energy=6800,
+        sigt=0.0001,
+        bv=1,
+        npart=1,
+        sige=1e-06,
+        ex=1.379811894352941e-10,
+        ey=1.379811894352941e-10,
+        mass=0.93827208816,
+        charge=1.0;
+    ;
+use, sequence=lhcb1;
+use, sequence=lhcb1;
+twiss;
+
+    beam, particle=proton,sequence=lhcb2,
+        energy=6800,
+        sigt=0.0001,
+        bv=-1,
+        npart=1,
+        sige=1e-06,
+        ex=1.379811894352941e-10,
+        ey=1.379811894352941e-10,
+        mass=0.93827208816,
+        charge=1.0;
+    ;
+use, sequence=lhcb2;
+use, sequence=lhcb2;
+twiss;
+use, sequence=lhcb1;
+exec, crossing_disable;
+exec, crossing_save;
+ver_lhc_run = 3.0;
+par_verbose = 1;
+call, file="/home/phbelang/abp/BBStudies/Executables/py-BB/xmask/xmask/lhc/madx_scripts/submodule_04a_s1_prepare_nom_twiss_table.madx";
+call, file="/home/phbelang/abp/BBStudies/Executables/py-BB/xmask/xmask/lhc/madx_scripts/submodule_04e_s1_synthesize_knobs.madx";
