@@ -34,6 +34,7 @@ pip install ipywidgets
 pip install PyYAML
 pip install pyarrow
 pip install pandas
+pip install bokeh
 pip install matplotlib
 pip install scipy
 pip install ipympl

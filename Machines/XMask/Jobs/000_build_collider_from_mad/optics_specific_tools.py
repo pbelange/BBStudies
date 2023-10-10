@@ -57,7 +57,7 @@ def build_sequence(mad, mylhcbeam, ignore_cycling=False):
       """)
 
     # Redefine macro for myslice
-    my_slice(mad, slice_factor=4)
+    my_slice(mad, slice_factor=8)
 
     # Slice nominal sequence
     mad.input("exec, myslice;")

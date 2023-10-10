@@ -3,6 +3,13 @@ Executables/**
 *__pycache*
 *.c
 *.o
+*.json
+*.DS_Store
+*.html
+
+# Include filling patterns
+!Machines/FillingSchemes/*.json
+
 
 # Mask management
 Machines/Checks/**
@@ -23,9 +30,16 @@ Machines/Optics/**
 Machines/Surveys/**
 
 
-Machines/XMask/Jobs/000_build_collider_from_mad/**
-!Machines/XMask/Jobs/000_build_collider_from_mad/*.py
-!Machines/XMask/Jobs/000_build_collider_from_mad/*.yaml
+# Machines/XMask/**
+# !Machines/XMask/**/*.py
+# !Machines/XMask/**/*.ipynb
+# !Machines/XMask/**/*.yaml
+# !Machines/XMask/**/*.md
+
+
+# Machines/XMask/Jobs/000_build_collider_from_mad/**
+# !Machines/XMask/Jobs/000_build_collider_from_mad/*.py
+# !Machines/XMask/Jobs/000_build_collider_from_mad/*.yaml
 
 # !Machines/XMask/Jobs/000_build_collider_from_mad/*.py
 # !Machines/XMask/Jobs/000_build_collider_from_mad/*.yaml
