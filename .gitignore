@@ -11,6 +11,10 @@ Executables/**
 !Machines/FillingSchemes/*.json
 
 
+
+
+# SHOULD ALL BE DELETED SOON
+#==========================================
 # Mask management
 Machines/Checks/**
 Machines/Mask/**
