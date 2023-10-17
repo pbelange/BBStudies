@@ -6,6 +6,8 @@ Executables/**
 *.json
 *.DS_Store
 *.html
+*.pkl
+*.parquet
 
 # Include filling patterns
 !Machines/FillingSchemes/*.json

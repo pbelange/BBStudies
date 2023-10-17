@@ -138,7 +138,7 @@ def filter_twiss(_twiss,entries = ['drift','..']):
 
 
 #====================================
-def W_phys2norm(x,px,y,py,zeta,pzeta,twiss,to_pd = False):
+def W_phys2norm(x,px,y,py,zeta,pzeta,W_matrix,particle_on_co,to_pd = False):
      
 
     # Compute ptau from delta
@@ -151,14 +151,14 @@ def W_phys2norm(x,px,y,py,zeta,pzeta,twiss,to_pd = False):
     #=======================================
 
     XX = np.zeros(shape=(6, len(x)), dtype=np.float64)
-    XX[0,:] = x     -twiss.particle_on_co.x
-    XX[1,:] = px    -twiss.particle_on_co.px
-    XX[2,:] = y     -twiss.particle_on_co.y
-    XX[3,:] = py    -twiss.particle_on_co.py
-    XX[4,:] = zeta  -twiss.particle_on_co.zeta
-    XX[5,:] = pzeta -twiss.particle_on_co.ptau / twiss.particle_on_co.beta0
+    XX[0,:] = x     - particle_on_co.x
+    XX[1,:] = px    - particle_on_co.px
+    XX[2,:] = y     - particle_on_co.y
+    XX[3,:] = py    - particle_on_co.py
+    XX[4,:] = zeta  - particle_on_co.zeta
+    XX[5,:] = pzeta - particle_on_co.ptau / particle_on_co.beta0
 
-    XX_n = np.dot(np.linalg.inv(twiss.W_matrix[0]), XX)
+    XX_n = np.dot(np.linalg.inv(W_matrix), XX)
 
 
 
@@ -166,6 +166,22 @@ def W_phys2norm(x,px,y,py,zeta,pzeta,twiss,to_pd = False):
         return pd.DataFrame({'x_n':XX_n[0,:],'px_n':XX_n[1,:],'y_n':XX_n[2,:],'py_n':XX_n[3,:],'zeta_n':XX_n[4,:],'pzeta_n':XX_n[5,:]})
     else:
         return XX_n
+
+def norm2sigma(x_n,px_n,y_n,py_n,zeta_n,pzeta_n,nemitt_x,nemitt_y,nemitt_zeta,particle_on_co,to_pd = False):
+
+
+    XX = np.zeros(shape=(6, len(x_n)), dtype=np.float64)
+    XX[0,:] = x_n     / np.sqrt(nemitt_x/particle_on_co.gamma0)
+    XX[1,:] = px_n    / np.sqrt(nemitt_x/particle_on_co.gamma0)
+    XX[2,:] = y_n     / np.sqrt(nemitt_y/particle_on_co.gamma0)
+    XX[3,:] = py_n    / np.sqrt(nemitt_y/particle_on_co.gamma0)
+    XX[4,:] = zeta_n  / np.sqrt(nemitt_zeta/particle_on_co.gamma0)
+    XX[5,:] = pzeta_n / np.sqrt(nemitt_zeta/particle_on_co.gamma0)
+
+    if to_pd:
+        return pd.DataFrame({'x_sig':XX[0,:],'px_sig':XX[1,:],'y_sig':XX[2,:],'py_sig':XX[3,:],'zeta_sig':XX[4,:],'pzeta_sig':XX[5,:]})
+    else:
+        return XX
 #=======================================
 
 
@@ -174,70 +190,101 @@ def W_phys2norm(x,px,y,py,zeta,pzeta,twiss,to_pd = False):
 #===================================================
 class Tracking_Interface():
     
-    # FOR GPU:
-    # collider.discard_trackers()
-
-    # ctx = xo.ContextCupy()
-
-    # collider.build_trackers(_context=ctx)
-    # particles.move(_context=ctx)
-    # pgpu = particles.copy(_context=ctx)
-
-    def __init__(self,line,particles,n_turns,method='6D',progress=False,saveVars = False,context=None,monitor=None):
+    def __init__(self,line,particles,n_turns,method='6D',progress=False,saveVars = False,_context=None,
+                            monitor=None,rebuild = False,extract_columns = None,skip_extraction = False,
+                            nemitt_x = None,nemitt_y = None,nemitt_zeta = None):
         
-        #self.particles = particles.copy()
-        self.context   = context
-        self.n_turns   = int(n_turns)
+        # meta_info
+        #-------------------------
+        self.context   = _context
         self.vars      = None
+        if saveVars:
+            # Savevars if needed
+            self.vars = line.vars.copy() 
+        self.skip_extraction = skip_extraction
+        #-------------------------
+
 
         # Footprint info
+        #-------------------------
         self._tunes    = None
         self._tunes_n  = None
         self._tunesMTD    = 'pynaff'
         self._oldTunesMTD = 'pynaff'
+        #-------------------------
 
-        # Savevars if needed
-        if saveVars:
-            self.vars = line.vars.copy()
 
         # Progress info
+        #-------------------------
         self.progress  = progress
         self._plive    = None
         self._pstatus  = None
-        
+        #-------------------------
+
         # Tracking
+        #-------------------------
+        self.n_turns   = int(n_turns)
         self.df        = None
+        self._df_n     = None
+        self._df_sig   = None
+        if extract_columns is None:
+            self.extract_columns = ['at_turn','particle_id','x','px','y','py','zeta','pzeta','state','at_element']
+        
+        # Saving starting coordinates
+        self.coordinates = particles.to_pandas()[['x','px','y','py','zeta','ptau','beta0']].copy(deep=True)
+        self.coordinates.insert(5,'pzeta',self.coordinates['ptau']/self.coordinates['beta0'])
+        self.coordinates.index.name = 'particle'
+
+        # Saving emittance
+        self.nemitt_x = nemitt_x
+        self.nemitt_y = nemitt_y
+        self.nemitt_y = nemitt_zeta
+
+
         # Create monitor if needed
         if monitor is None:
-            self.monitor = xt.ParticlesMonitor( start_at_turn    = 0, 
+            self.monitor = xt.ParticlesMonitor( _context         = self.context,
+                                                start_at_turn    = 0, 
                                                 stop_at_turn     = self.n_turns,
                                                 n_repetitions    = 1,
                                                 repetition_period= 1,
                                                 num_particles    = len(particles.particle_id))
         else:
             self.monitor = monitor
+        #-------------------------
 
 
-        # applying context
-        if self.context is not None:
+        # Rebuilt tracker and attach to context
+        #-------------------------
+        if rebuild:
             line.discard_tracker()
-
             line.build_tracker(_context=self.context)
             particles.move(_context=self.context)
+        #-------------------------
+
+        # Relevant twiss information
+        _twiss = line.twiss(method=method.lower())
+        self.W_matrix       = _twiss.W_matrix[0]
+        self.particle_on_co = _twiss.particle_on_co 
+
 
         assert (method.lower() in ['4d','6d']), 'method should either be 4D or 6D (default)'
         try:
             self.runTracking(line,particles,method=method.lower())
+        except Exception as error:
+            self.closeLiveDisplay()
+            print("An error occurred:", type(error).__name__, "–", error)
         except KeyboardInterrupt:
             self.closeLiveDisplay()
+            print("Terminated by user: KeyboardInterrupt")
 
 
         # Disabling Tracking
+        #-------------------------
         self.runTracking = lambda _: print('New Tracking instance needed')
+        #-------------------------
     
     def to_pickle(self,filename):
-        # TODO: transfer .particles attribute to df to be pickled
-        self.particles    = None
         self.progress     = None
         self.monitor      = None
         self.progress     = None
@@ -245,9 +292,35 @@ class Tracking_Interface():
         self._pstatus     = None
         self.runTracking  = None
 
+        self._tunes    = None
+        self._tunes_n  = None
+
+        self._df_n     = None
+        self._df_sig   = None
+
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
 
+    
+    @property
+    def df_n(self):
+        if self._df_n is None:
+            self._df_n = W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,to_pd=True)
+        return self._df_n
+    
+
+    @property
+    def df_sig(self):
+        if self._df_sig is None:
+            # Asserting the existence of the emittances
+            if (self.nemitt_x is None) or (self.nemitt_x is None) or (self.nemitt_zeta is None):
+                print('Need to specifiy emittances, self.nemitt_x,self.nemitt_y,self.nemitt_zeta')
+                return None
+            
+            # Computing in sigma coordinates
+            self._df_sig = norm2sigma(**self.df_n[['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co,to_pd=True)
+        return self._df_sig
+    
     @property
     def tunes(self):
         # Reset if method is changed
@@ -292,70 +365,53 @@ class Tracking_Interface():
     def runTracking(self,line,particles,method = '6d'):
 
         if method=='4d':
-            pass
-            # SHOULD BE RE-WRITTEN
-            #======================
-            # config = xt.tracker.TrackerConfig()
-            # config.update(tracker.config)
-
-            # _tracker = tracker
-            # _tracker.freeze_longitudinal(True)
+            line.freeze_longitudinal(True)
             
-            # # Some checks
-            # assert _tracker.line is tracker.line
-            # assert _tracker._buffer is tracker._buffer
-            _line = line
-            _line.freeze_longitudinal(True)
-            
-        else:
-            _line = line
-
         if self.progress:
             
-
             # Run turn-by-turn to show progress
             self.startProgressBar()
             #-------------------------
             for iturn in range(self.n_turns):
-                _line.track(particles,turn_by_turn_monitor=self.monitor)
+                line.track(particles,turn_by_turn_monitor=self.monitor)
                 self.updateProgressBar()
             #-------------------------
             self.closeLiveDisplay()
 
-            #CONVERT TO PANDAS
-            self.df = pd.DataFrame(self.monitor.to_dict()['data'])
 
         else:
-            # self.startSpinner()
-            _line.track(particles, num_turns=self.n_turns,turn_by_turn_monitor=self.monitor)
-            # self.closeLiveDisplay()
+            self.startSpinner()
+
+            line.track(particles, num_turns=self.n_turns,turn_by_turn_monitor=self.monitor)
+            
+            self.updateLiveDisplay()
+            self.closeLiveDisplay()
+
+
+        if not self.skip_extraction:
 
             #CONVERT TO PANDAS
-            # self.df = pd.DataFrame(_line.record_last_track.to_dict()['data'])
             self.df = pd.DataFrame(self.monitor.to_dict()['data'])
-        
-        
-        # Getting rid of non-physical particles
-        # self.df = self.df[self.df['gamma0'] > 0].reset_index(drop=True)
+            
+            # Getting rid of lost particles
+            self.df = self.df[self.df['state'] != 0].reset_index(drop=True)
 
-        # # Filter the data
-        # self.df.insert(list(self.df.columns).index('zeta'),'pzeta',self.df['ptau']/self.df['beta0'])
-        # self.df = self.df[['at_turn','particle_id','x','px','y','py','zeta','pzeta','state','at_element','start_tracking_at_element']]
-        # self.df.rename(columns={"at_turn": "turn",'particle_id':'particle'},inplace=True)
+            # Filter the data
+            self.df.insert(list(self.df.columns).index('zeta'),'pzeta',self.df['ptau']/self.df['beta0'])
+            self.df = self.df[self.extract_columns]
+            self.df.rename(columns={"at_turn": "turn",'particle_id':'particle'},inplace=True)
 
         
+            # # Return in normalized space as well:
+            
+            # self.df = pd.concat([self.df,coord_n],axis=1)
 
-        # Return in normalized space as well:
-        # NOTE: twiss can only be done on tracker6D!!
-        # coord_n = W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],twiss=_line.twiss(method=method),to_pd=True)
-        # self.df = pd.concat([self.df,coord_n],axis=1)
 
         # Unfreeze longitudinal
-        # TO DO AS WELL
         if method=='4d':
-            _line.freeze_longitudinal(False)
             line.freeze_longitudinal(False)
-            # print('NEED TO IMPLEMENT UNFREEZE LONGITUDINAL')
+
+
 
     # Progress bar methods
     #=============================================================================
@@ -375,16 +431,18 @@ class Tracking_Interface():
     def updateProgressBar(self,):
         self._plive.update(self._pstatus, advance=1,update=True)
 
+    def updateLiveDisplay(self,):
+        self._plive.update(self._pstatus,advance=1,update=True)
         
     def startSpinner(self,):
         self._plive = Progress("{task.description}",
-                                SpinnerColumn(),
+                                SpinnerColumn('aesthetic',),
                                 TextColumn("[progress.elapsed] ["),TimeElapsedColumn (),TextColumn("[progress.elapsed]elapsed ]   "))
 
         self._plive.start()
         self._plive.live._disable_redirect_io()
 
-        self._pstatus = self._plive.add_task("[blue]Tracking", total=self.n_turns)
+        self._pstatus = self._plive.add_task("[blue]Tracking")
 
 
     def closeLiveDisplay(self,):
@@ -441,8 +499,6 @@ class Tracking():
         self.runTracking = lambda _: print('New Tracking instance needed')
     
     def to_pickle(self,filename):
-        # TODO: transfer .particles attribute to df to be pickled
-        self.particles    = None
         self.progress     = None
         self.monitor      = None
         self.progress     = None
