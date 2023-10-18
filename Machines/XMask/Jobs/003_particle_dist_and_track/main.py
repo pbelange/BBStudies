@@ -72,7 +72,7 @@ def load_collider(collider_path = '../001_configure_collider/zfruits/collider_00
 
     # Choosing contex, GPU
     #--------------------------------------
-    if user_context == 'CPU0':
+    if user_context == 'CPU':
         context = xo.ContextCpu(omp_num_threads='auto')
     elif user_context == 'GPU':
         context = xo.ContextCupy()
@@ -142,16 +142,19 @@ def particle_dist_and_track():
                                         user_context  = config['tracking']['user_context'])
 
     # Parsing config
-    line    = collider[config['tracking']['sequence']]
-    n_parts = int(config['tracking']['n_parts'])
-    n_turns = int(config['tracking']['n_turns'])
+    sequence = config['tracking']['sequence']
+    line     = collider[sequence]
+    n_parts  = int(config['tracking']['n_parts'])
+    n_turns  = int(config['tracking']['n_turns'])
     #----------------------------------
 
 
     # Generating particle distribution
     #----------------------------------
     # Extracting emittance from previous config
-    config_bb = read_configuration('../001_configure_collider/config.yaml')
+    config_bb    = read_configuration('../001_configure_collider/config.yaml')
+    beam = sequence[-2:]
+    bunch_number = config_bb['config_collider']['config_beambeam']['mask_with_filling_pattern'][f'i_bunch_{beam}'] 
     nemitt_x,nemitt_y = (config_bb['config_collider']['config_beambeam'][f'nemitt_{plane}'] for plane in ['x','y'])
     #-----------------------
     print('GENERATING PARTICLES')
@@ -185,10 +188,19 @@ def particle_dist_and_track():
     #----------------------------------
 
 
+
     # Saving results
     #----------------------------------
-    print('SAVING TO PICKLES...')
-    tracked.to_pickle('zfruits/test_tracked.pkl')
+    # Preparing output folder
+    if not Path('zfruits').exists():
+        Path('zfruits').mkdir()
+        
+
+    parquet_path = config['tracking']['tracking_path']
+    bunch_ID     = str(bunch_number).zfill(4)
+    print(f'SAVING TO PARQUET... -> {parquet_path}')
+    # Setting Bunch number for partitionning
+    tracked.to_parquet(parquet_path,partition_name='BUNCH',partition_ID=bunch_ID)
     #----------------------------------
 
     return particles,tracked

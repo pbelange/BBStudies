@@ -6,6 +6,9 @@ import numpy as np
 import pandas as pd
 from rich.progress import Progress, BarColumn, TextColumn,TimeElapsedColumn,SpinnerColumn,TimeRemainingColumn
 import pickle
+import dask.dataframe as dd
+import gc
+# from pathlib import Path
 
 import xobjects as xo
 import xtrack as xt
@@ -185,23 +188,100 @@ def norm2sigma(x_n,px_n,y_n,py_n,zeta_n,pzeta_n,nemitt_x,nemitt_y,nemitt_zeta,pa
 #=======================================
 
 
+#=======================================
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
+#========================================
+
+
+#========================================
+def import_parquet(data_path,partition_name=None,partition_ID=None,variables = None):
+
+    # Checking input
+    #-----------------------------
+    if variables is not None:
+        if partition_name not in variables:
+            variables = [partition_name] + variables
+    #-----------------------------
+
+    # Importing the data
+    #-----------------------------
+    if partition_ID is not None:
+        assert (partition_name is None) == (partition_ID is None), 'partition_name and partition_ID must be both None or both not None'
+        _partition = dd.read_parquet(data_path + f'/{partition_name}={partition_ID}',columns=variables,parquet_file_extension = '.parquet')
+    else:
+        _partition = dd.read_parquet(data_path,columns=variables,parquet_file_extension = '.parquet')
+    #-----------------------------
+
+    # Cleaning up the dataframe
+    #-----------------------------
+    df        = _partition.compute()
+    if partition_name is not None:
+        df = df.set_index(partition_name).reset_index()
+    else:
+        df = df.reset_index(drop=True)
+    #-----------------------------
+
+
+    # Removing raw data
+    #-----------------------------
+    del(_partition)
+    gc.collect()
+    #-----------------------------
+
+    return df
+#========================================
+
+
 
 # NEW Tracking class:
 #===================================================
 class Tracking_Interface():
     
-    def __init__(self,line,particles,n_turns,method='6D',progress=False,saveVars = False,_context=None,
+    def __init__(self,line=None,particles=None,n_turns=None,method='6D',progress=False,_context=None,
                             monitor=None,rebuild = False,extract_columns = None,skip_extraction = False,
-                            nemitt_x = None,nemitt_y = None,nemitt_zeta = None):
+                            nemitt_x = None,nemitt_y = None,nemitt_zeta = None,partition_name = None,partition_ID = None):
         
-        # meta_info
+        # Tracking
         #-------------------------
-        self.context   = _context
-        self.vars      = None
-        if saveVars:
-            # Savevars if needed
-            self.vars = line.vars.copy() 
+        self.partition_name = partition_name 
+        self.partition_ID   = partition_ID 
+
+        if n_turns is not None:
+            self.n_turns   = int(n_turns)
+        else:
+            self.n_turns   = None
+        if particles is not None:
+            self.n_parts   = len(particles.particle_id)
+        else:
+            self.n_parts   = None
+
+        self.df        = None
+        self._df_n     = None
+        self._df_sig   = None
+
+        self._coord    = None
+        self._coord_n  = None
+        self._coord_sig= None
+
+        self.context         = _context
         self.skip_extraction = skip_extraction
+
+        if extract_columns is None:
+            self.extract_columns = ['at_turn','particle_id','x','px','y','py','zeta','pzeta','state','at_element']
+        
+
+        # Saving emittance
+        self.nemitt_x = nemitt_x
+        self.nemitt_y = nemitt_y
+        self.nemitt_y = nemitt_zeta
         #-------------------------
 
 
@@ -209,8 +289,8 @@ class Tracking_Interface():
         #-------------------------
         self._tunes    = None
         self._tunes_n  = None
-        self._tunesMTD    = 'pynaff'
-        self._oldTunesMTD = 'pynaff'
+        self._tunesMTD    = 'nafflib'
+        self._oldTunesMTD = 'nafflib'
         #-------------------------
 
 
@@ -221,28 +301,10 @@ class Tracking_Interface():
         self._pstatus  = None
         #-------------------------
 
-        # Tracking
-        #-------------------------
-        self.n_turns   = int(n_turns)
-        self.df        = None
-        self._df_n     = None
-        self._df_sig   = None
-        if extract_columns is None:
-            self.extract_columns = ['at_turn','particle_id','x','px','y','py','zeta','pzeta','state','at_element']
-        
-        # Saving starting coordinates
-        self.coordinates = particles.to_pandas()[['x','px','y','py','zeta','ptau','beta0']].copy(deep=True)
-        self.coordinates.insert(5,'pzeta',self.coordinates['ptau']/self.coordinates['beta0'])
-        self.coordinates.index.name = 'particle'
-
-        # Saving emittance
-        self.nemitt_x = nemitt_x
-        self.nemitt_y = nemitt_y
-        self.nemitt_y = nemitt_zeta
-
 
         # Create monitor if needed
-        if monitor is None:
+        #--------------------------
+        if (monitor is None) and (particles is not None):
             self.monitor = xt.ParticlesMonitor( _context         = self.context,
                                                 start_at_turn    = 0, 
                                                 stop_at_turn     = self.n_turns,
@@ -256,35 +318,75 @@ class Tracking_Interface():
 
         # Rebuilt tracker and attach to context
         #-------------------------
-        if rebuild:
-            line.discard_tracker()
-            line.build_tracker(_context=self.context)
-            particles.move(_context=self.context)
+        if line is not None:
+            if rebuild:
+                line.discard_tracker()
+                line.build_tracker(_context=self.context)
+                particles.move(_context=self.context)
         #-------------------------
 
         # Relevant twiss information
-        _twiss = line.twiss(method=method.lower())
-        self.W_matrix       = _twiss.W_matrix[0]
-        self.particle_on_co = _twiss.particle_on_co 
+        #--------------------------
+        if line is not None:
+            _twiss = line.twiss(method=method.lower())
+            self.W_matrix       = _twiss.W_matrix[0]
+            self.particle_on_co = _twiss.particle_on_co 
+        else:
+            self.W_matrix       = None
+            self.particle_on_co = None
+        #--------------------------
 
 
-        assert (method.lower() in ['4d','6d']), 'method should either be 4D or 6D (default)'
-        try:
-            self.runTracking(line,particles,method=method.lower())
-        except Exception as error:
-            self.closeLiveDisplay()
-            print("An error occurred:", type(error).__name__, "–", error)
-        except KeyboardInterrupt:
-            self.closeLiveDisplay()
-            print("Terminated by user: KeyboardInterrupt")
 
+        # Tracking
+        #--------------------------
+        self.method = method.lower()
+        if line is not None:
+            assert (method.lower() in ['4d','6d']), 'method should either be 4D or 6D (default)'
+            try:
+                self.runTracking(line,particles,method=method.lower())
+            except Exception as error:
+                self.closeLiveDisplay()
+                print("An error occurred:", type(error).__name__, "–", error)
+            except KeyboardInterrupt:
+                self.closeLiveDisplay()
+                print("Terminated by user: KeyboardInterrupt")
+        #--------------------------
 
         # Disabling Tracking
         #-------------------------
         self.runTracking = lambda _: print('New Tracking instance needed')
         #-------------------------
+
+    @classmethod
+    def from_parquet(cls,data_path,partition_name=None,partition_ID=None,variables = None):
+        self = cls()
+        self.df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables)
+
+        meta_path = f'{data_path}/{partition_name}={partition_ID}/meta_data.json'
+
+        with open(meta_path , "r") as file: 
+            metadata = json.load(file)
+
+        self.partition_name  = metadata['partition_name']
+        self.partition_ID    = metadata['partition_ID']
+        self.n_turns         = metadata['n_turns']
+        self.n_parts         = metadata['n_parts']
+        self.nemitt_x        = metadata['nemitt_x']
+        self.nemitt_y        = metadata['nemitt_y']
+        self.nemitt_zeta     = metadata['nemitt_zeta']
+        self.method          = metadata['method']
+
+        self.W_matrix        = np.array(metadata['W_matrix'])
+        self.particle_on_co  = xp.Particles.from_dict(metadata['particle_on_co'])
+
+        return self
+
+
+        
     
     def to_pickle(self,filename):
+        self.context      = None
         self.progress     = None
         self.monitor      = None
         self.progress     = None
@@ -298,14 +400,71 @@ class Tracking_Interface():
         self._df_n     = None
         self._df_sig   = None
 
+        self._coord    = None
+        self._coord_n  = None
+        self._coord_sig= None
+
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
 
+    def to_parquet(self,filename,partition_name = None,partition_ID = None):
+        if partition_name is not None:
+            self.partition_name = partition_name  
+        if partition_ID is not None:
+            self.partition_ID   = partition_ID
+
+        # Export to parquet, partitioned in sub folder
+        #---------------------------------------
+        self.df.insert(0,self.partition_name,self.partition_ID)
+        self.df.to_parquet(filename,    partition_cols         = [self.partition_name],
+                                        existing_data_behavior = 'delete_matching',
+                                        basename_template      = 'tracking_data_{i}.parquet')
+        self.df.drop(columns=[self.partition_name],inplace=True)
+        #---------------------------------------
+
+        # Export metadata as well
+        metadata = {'partition_name'  : self.partition_name,
+                    'partition_ID'    : self.partition_ID,
+                    'n_turns'         : self.n_turns,
+                    'n_parts'         : self.n_parts,
+                    'nemitt_x'        : self.nemitt_x,
+                    'nemitt_y'        : self.nemitt_y,
+                    'nemitt_zeta'     : self.nemitt_zeta,
+                    'method'          : self.method,
+                    'W_matrix'        : self.W_matrix,
+                    'particle_on_co'  : self.particle_on_co.to_dict()}
+        
+        meta_path = f'{filename}/{self.partition_name}={self.partition_ID}/meta_data.json'
+        with open(meta_path , "w") as outfile: 
+            json.dump(metadata, outfile,cls=NpEncoder)
+
+        
+
+    @property
+    def coord(self):
+        if self._coord is None:
+            self._coord = self.df.groupby('turn').get_group(0).drop(columns=['turn'])
+        return self._coord
     
+    @property
+    def coord_n(self):
+        if self._coord_n is None:
+            self._coord_n = self.df_n.groupby('turn').get_group(0).drop(columns=['turn'])
+        return self._coord_n
+    
+    @property
+    def coord_sig(self):
+        if self._coord_sig is None:
+            self._coord_sig = self.df_sig.groupby('turn').get_group(0).drop(columns=['turn'])
+        return self._coord_sig
+
+
     @property
     def df_n(self):
         if self._df_n is None:
-            self._df_n = W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,to_pd=True)
+            coord_n = W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,to_pd=True)
+            self._df_n = pd.concat([self.df[['turn','particle']],coord_n],axis=1)
+        
         return self._df_n
     
 
@@ -318,7 +477,9 @@ class Tracking_Interface():
                 return None
             
             # Computing in sigma coordinates
-            self._df_sig = norm2sigma(**self.df_n[['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co,to_pd=True)
+            coord_sig = norm2sigma(**self.df_n[['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co,to_pd=True)
+            self._df_sig = pd.concat([self.df_n[['turn','particle']],coord_sig],axis=1)
+        
         return self._df_sig
     
     @property
@@ -401,10 +562,10 @@ class Tracking_Interface():
             self.df = self.df[self.extract_columns]
             self.df.rename(columns={"at_turn": "turn",'particle_id':'particle'},inplace=True)
 
+            # Adding element name
+            if 'at_element' in self.extract_columns:
+                self.df.loc[:,'at_element'] = self.df.at_element.apply(lambda ee_idx: line.element_names[ee_idx])
         
-            # # Return in normalized space as well:
-            
-            # self.df = pd.concat([self.df,coord_n],axis=1)
 
 
         # Unfreeze longitudinal

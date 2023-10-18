@@ -6,6 +6,7 @@ tracking:
 
   user_context  : GPU
   collider_path : ../001_configure_collider/zfruits/collider_001.json
+  tracking_path : zfruits/tracking
 
   sequence: lhcb1
   n_parts : 20e3
