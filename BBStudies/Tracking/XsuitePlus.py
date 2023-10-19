@@ -8,6 +8,7 @@ from rich.progress import Progress, BarColumn, TextColumn,TimeElapsedColumn,Spin
 import pickle
 import dask.dataframe as dd
 import gc
+import traceback
 # from pathlib import Path
 
 import xobjects as xo
@@ -76,6 +77,18 @@ ARef.inspect = inspect
 ARef.knobs   = knobs
 #============================================================
 
+
+#============================================================
+def whereis(obj: xo.HybridClass, _buffers=[]):
+    context = obj._context.__class__.__name__
+    if obj._buffer in _buffers:
+        buffer_id = _buffers.index(obj._buffer)
+    else:
+        buffer_id = len(_buffers)
+        _buffers.append(obj._buffer)
+    offset = obj._offset
+    print(f"context={context}, buffer={buffer_id}, offset={offset}")
+#============================================================
 
 
 # Loading line from file
@@ -240,13 +253,110 @@ def import_parquet(data_path,partition_name=None,partition_ID=None,variables = N
 #========================================
 
 
+# def max_excursion(self):
+    
+#     x_max = np.max(self.monitor.x,axis=1)
+
+
+
+
+# Calculation_Buffer:
+#===================================================
+class Calculation_Buffer():
+    def __init__(self,monitor=None,user_calculations = None,user_args = None,_context=None):
+        self.monitor           = monitor
+        self.context           = _context
+        self.user_calculations = user_calculations
+        self.user_args         = user_args
+        
+        self.call_ID = None
+        self.data    = None
+
+    def to_pandas(self):
+        return pd.DataFrame(self.data,index='index')
+
+    def process(self,monitor = None):
+
+        # Initialize
+        #-------------------------
+        if self.call_ID is None:
+            self.call_ID = 0
+        else:
+            self.call_ID += 1
+
+        if self.data is None:
+            self.data = {}
+            self.data['index'] = []
+            self.data['start_at_turn'] = []
+            self.data['stop_at_turn']  = []
+            self.data['x_min'] = []
+            self.data['x_max'] = []
+            self.data['y_min'] = []
+            self.data['y_max'] = []
+            self.data['zeta_min'] = []
+            self.data['zeta_max'] = []
+            self.data['px_min'] = []
+            self.data['px_max'] = []
+            self.data['py_min'] = []
+            self.data['py_max'] = []
+            self.data['pzeta_min'] = []
+            self.data['pzeta_max'] = []
+        
+        if monitor is not None:
+            self.monitor = monitor
+        #-------------------------
+
+        start_at_turn = self.monitor.start_at_turn
+        stop_at_turn  = self.monitor.stop_at_turn
+
+        # Note: 2D array are ordered following [particles,turns]
+        x_max  = np.max(self.monitor.x,axis=1)
+        px_max = np.max(self.monitor.px,axis=1)
+        y_max  = np.max(self.monitor.y,axis=1)
+        py_max = np.max(self.monitor.py,axis=1)
+        zeta_max  = np.max(self.monitor.zeta,axis=1)
+
+        # ptau/beta0 -> ignoring division by zeros
+        pzeta = np.divide(self.monitor.ptau,self.monitor.beta0, np.zeros_like(self.monitor) + np.nan,where=self.monitor.beta0!=0)
+        pzeta_max = np.max(pzeta,axis=1)
+
+        # same for min
+        x_min  = np.min(self.monitor.x,axis=1)
+        px_min = np.min(self.monitor.px,axis=1)
+        y_min  = np.min(self.monitor.y,axis=1)
+        py_min = np.min(self.monitor.py,axis=1)
+        zeta_min  = np.min(self.monitor.zeta,axis=1)
+        pzeta_min = np.min(pzeta,axis=1)
+
+        # Appending to data
+        #-------------------------
+        self.data['index'].append(self.call_ID)
+        self.data['start_at_turn'].append(start_at_turn)
+        self.data['stop_at_turn'].append(stop_at_turn)
+        self.data['x_min'].append(x_min)
+        self.data['x_max'].append(x_max)
+        self.data['y_min'].append(y_min)
+        self.data['y_max'].append(y_max)
+        self.data['zeta_min'].append(zeta_min)
+        self.data['zeta_max'].append(zeta_max)
+        self.data['px_min'].append(px_min)
+        self.data['px_max'].append(px_max)
+        self.data['py_min'].append(py_min)
+        self.data['py_max'].append(py_max)
+        self.data['pzeta_min'].append(pzeta_min)
+        self.data['pzeta_max'].append(pzeta_max)
+        #-------------------------
+
+
+
+
 
 # NEW Tracking class:
 #===================================================
 class Tracking_Interface():
     
-    def __init__(self,line=None,particles=None,n_turns=None,method='6D',progress=False,_context=None,
-                            monitor=None,rebuild = False,extract_columns = None,skip_extraction = False,
+    def __init__(self,line=None,particles=None,n_turns=None,method='6D',progress=False,progress_turn_chunk = None,_context=None,
+                            monitor=None,rebuild = False,extract_columns = None,
                             nemitt_x = None,nemitt_y = None,nemitt_zeta = None,partition_name = None,partition_ID = None):
         
         # Tracking
@@ -263,7 +373,7 @@ class Tracking_Interface():
         else:
             self.n_parts   = None
 
-        self.df        = None
+        self._df       = None
         self._df_n     = None
         self._df_sig   = None
 
@@ -272,7 +382,6 @@ class Tracking_Interface():
         self._coord_sig= None
 
         self.context         = _context
-        self.skip_extraction = skip_extraction
 
         if extract_columns is None:
             self.extract_columns = ['at_turn','particle_id','x','px','y','py','zeta','pzeta','state','at_element']
@@ -296,6 +405,7 @@ class Tracking_Interface():
 
         # Progress info
         #-------------------------
+        self.progress_turn_chunk = progress_turn_chunk
         self.progress  = progress
         self._plive    = None
         self._pstatus  = None
@@ -305,12 +415,20 @@ class Tracking_Interface():
         # Create monitor if needed
         #--------------------------
         if (monitor is None) and (particles is not None):
+            # Overwritting object in memory if it already exists:
+            if hasattr(line, 'record_last_track'):
+                self.monitor = line.record_last_track
+            
+            # Creating new instance, starting where previous tracking left off
+            # To start new tracking, reinitiate the particles object!
+            start_at_turn = self.context.nparray_from_context_array(particles.at_turn).max()
+
             self.monitor = xt.ParticlesMonitor( _context         = self.context,
-                                                start_at_turn    = 0, 
-                                                stop_at_turn     = self.n_turns,
+                                                start_at_turn    = start_at_turn, 
+                                                stop_at_turn     = start_at_turn + self.n_turns,
                                                 n_repetitions    = 1,
                                                 repetition_period= 1,
-                                                num_particles    = len(particles.particle_id))
+                                                num_particles    = self.n_parts)
         else:
             self.monitor = monitor
         #-------------------------
@@ -348,6 +466,7 @@ class Tracking_Interface():
             except Exception as error:
                 self.closeLiveDisplay()
                 print("An error occurred:", type(error).__name__, "–", error)
+                traceback.print_exc()
             except KeyboardInterrupt:
                 self.closeLiveDisplay()
                 print("Terminated by user: KeyboardInterrupt")
@@ -361,7 +480,7 @@ class Tracking_Interface():
     @classmethod
     def from_parquet(cls,data_path,partition_name=None,partition_ID=None,variables = None):
         self = cls()
-        self.df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables)
+        self._df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables)
 
         meta_path = f'{data_path}/{partition_name}={partition_ID}/meta_data.json'
 
@@ -397,6 +516,7 @@ class Tracking_Interface():
         self._tunes    = None
         self._tunes_n  = None
 
+        self._df       = None
         self._df_n     = None
         self._df_sig   = None
 
@@ -415,11 +535,11 @@ class Tracking_Interface():
 
         # Export to parquet, partitioned in sub folder
         #---------------------------------------
-        self.df.insert(0,self.partition_name,self.partition_ID)
-        self.df.to_parquet(filename,    partition_cols         = [self.partition_name],
+        self._df.insert(0,self.partition_name,self.partition_ID)
+        self._df.to_parquet(filename,    partition_cols         = [self.partition_name],
                                         existing_data_behavior = 'delete_matching',
                                         basename_template      = 'tracking_data_{i}.parquet')
-        self.df.drop(columns=[self.partition_name],inplace=True)
+        self._df.drop(columns=[self.partition_name],inplace=True)
         #---------------------------------------
 
         # Export metadata as well
@@ -458,6 +578,26 @@ class Tracking_Interface():
             self._coord_sig = self.df_sig.groupby('turn').get_group(0).drop(columns=['turn'])
         return self._coord_sig
 
+
+    @property
+    def df(self):
+        if self._df is None:
+            #CONVERT TO PANDAS
+            self._df = pd.DataFrame(self.monitor.to_dict()['data'])
+            
+            # Getting rid of lost particles
+            self._df = self._df[self._df['state'] != 0].reset_index(drop=True)
+
+            # Filter the data
+            self._df.insert(list(self._df.columns).index('zeta'),'pzeta',self._df['ptau']/self._df['beta0'])
+            self._df = self._df[self.extract_columns]
+            self._df.rename(columns={"at_turn": "turn",'particle_id':'particle'},inplace=True)
+
+            # # Adding element name
+            # if 'at_element' in self.extract_columns:
+            #     self._df.loc[:,'at_element'] = self._df.at_element.apply(lambda ee_idx: line.element_names[ee_idx])
+        
+        return self._df
 
     @property
     def df_n(self):
@@ -525,17 +665,46 @@ class Tracking_Interface():
 
     def runTracking(self,line,particles,method = '6d'):
 
+
+        self.calculation_buffer = Calculation_Buffer()
+
+
         if method=='4d':
             line.freeze_longitudinal(True)
             
         if self.progress:
             
-            # Run turn-by-turn to show progress
+            # Run turn-by-turn or by chunk to show progress
             self.startProgressBar()
             #-------------------------
-            for iturn in range(self.n_turns):
-                line.track(particles,turn_by_turn_monitor=self.monitor)
-                self.updateProgressBar()
+            if self.progress_turn_chunk is None:
+                self.progress_turn_chunk = 1
+                
+            main_chunk = self.n_turns-1
+            chunks = [1] + (main_chunk//self.progress_turn_chunk)*[self.progress_turn_chunk]+ [np.mod(main_chunk,self.progress_turn_chunk)]
+            for chunk in chunks:
+                if chunk == 0:
+                    continue
+                line.track(particles, num_turns=chunk,turn_by_turn_monitor=self.monitor)
+                
+                # Dummy access to the data for clock time
+                _ = self.monitor.stop_at_turn
+
+                # Chunk Computation
+                self.calculation_buffer.process(monitor=self.monitor)
+
+                # Reset_monitor
+                last_turn = self.context.nparray_from_context_array(particles.at_turn).max()
+                self.monitor = xt.ParticlesMonitor( _context         = self.context,
+                                                    start_at_turn    = last_turn, 
+                                                    stop_at_turn     = last_turn + chunk,
+                                                    n_repetitions    = 1,
+                                                    repetition_period= 1,
+                                                    num_particles    = self.n_parts)
+
+                self.updateProgressBar(chunk=chunk)
+
+
             #-------------------------
             self.closeLiveDisplay()
 
@@ -545,26 +714,12 @@ class Tracking_Interface():
 
             line.track(particles, num_turns=self.n_turns,turn_by_turn_monitor=self.monitor)
             
-            self.updateLiveDisplay()
+            # Dummy access to the data for clock time
+            _ = self.context.nparray_from_context_array(particles.at_turn).max()
+
             self.closeLiveDisplay()
 
 
-        if not self.skip_extraction:
-
-            #CONVERT TO PANDAS
-            self.df = pd.DataFrame(self.monitor.to_dict()['data'])
-            
-            # Getting rid of lost particles
-            self.df = self.df[self.df['state'] != 0].reset_index(drop=True)
-
-            # Filter the data
-            self.df.insert(list(self.df.columns).index('zeta'),'pzeta',self.df['ptau']/self.df['beta0'])
-            self.df = self.df[self.extract_columns]
-            self.df.rename(columns={"at_turn": "turn",'particle_id':'particle'},inplace=True)
-
-            # Adding element name
-            if 'at_element' in self.extract_columns:
-                self.df.loc[:,'at_element'] = self.df.at_element.apply(lambda ee_idx: line.element_names[ee_idx])
         
 
 
@@ -589,12 +744,10 @@ class Tracking_Interface():
 
         self._pstatus = self._plive.add_task("[blue]Tracking\n", total=self.n_turns)
     
-    def updateProgressBar(self,):
-        self._plive.update(self._pstatus, advance=1,update=True)
+    def updateProgressBar(self,chunk = 1):
+        self._plive.update(self._pstatus, advance=chunk,update=True)
 
-    def updateLiveDisplay(self,):
-        self._plive.update(self._pstatus,advance=1,update=True)
-        
+
     def startSpinner(self,):
         self._plive = Progress("{task.description}",
                                 SpinnerColumn('aesthetic',),

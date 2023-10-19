@@ -35,7 +35,7 @@ user_specific_tasks = main_002.user_specific_tasks
 
 
 
-
+#xPlus = importlib.reload(xPlus)
 
 
 # ==================================================================================================
@@ -173,12 +173,10 @@ def particle_dist_and_track():
     tracked = xPlus.Tracking_Interface( line      = line,
                                         particles = particles,
                                         n_turns   = n_turns,
-                                        method    ='6D',
-                                        progress  = False,
-                                        saveVars  = False,
+                                        progress  = True,
                                         rebuild   = False,
                                         monitor   = None,
-                                        skip_extraction = False,
+                                        method    ='6D',
                                         _context   = context)
 
     # Saving emittance:
@@ -196,10 +194,11 @@ def particle_dist_and_track():
         Path('zfruits').mkdir()
         
 
+    # Setting Bunch number for partitionning
     parquet_path = config['tracking']['tracking_path']
     bunch_ID     = str(bunch_number).zfill(4)
+
     print(f'SAVING TO PARQUET... -> {parquet_path}')
-    # Setting Bunch number for partitionning
     tracked.to_parquet(parquet_path,partition_name='BUNCH',partition_ID=bunch_ID)
     #----------------------------------
 

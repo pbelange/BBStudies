@@ -10,7 +10,7 @@ tracking:
 
   sequence: lhcb1
   n_parts : 20e3
-  n_turns : 1e3
+  n_turns : 1000
 
 
 monitor:
