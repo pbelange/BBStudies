@@ -100,6 +100,7 @@ def generate_particles(n_part = 1000,force_n_part = False,line = None,_context =
     # Shuffling momentum
     #-----------------------
     ID = list(momentum.index)
+    np.random.seed(0)
     np.random.shuffle(ID)
     momentum = momentum.loc[ID,['x_sig','y_sig']].reset_index(drop=True).rename(columns={'x_sig':'px_sig','y_sig':'py_sig'})
     #-----------------------
@@ -211,3 +212,4 @@ def particle_dist_and_track():
 
 if __name__ == "__main__":
     particles,tracked = particle_dist_and_track()
+

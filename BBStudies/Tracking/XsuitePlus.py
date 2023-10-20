@@ -270,10 +270,42 @@ class Calculation_Buffer():
         self.user_args         = user_args
         
         self.call_ID = None
-        self.data    = None
+        
+        
+        self.data = {}
+        self.data['Chunk ID'] = []
+        self.data['n_parts'] = []
+        self.data['particle'] = []
+        self.data['state']    = []
+        self.data['start_at_turn'] = []
+        self.data['stop_at_turn']  = []
+        self.data['x_min'] = []
+        self.data['x_max'] = []
+        self.data['y_min'] = []
+        self.data['y_max'] = []
+        self.data['zeta_min'] = []
+        self.data['zeta_max'] = []
+        self.data['px_min'] = []
+        self.data['px_max'] = []
+        self.data['py_min'] = []
+        self.data['py_max'] = []
+        self.data['pzeta_min'] = []
+        self.data['pzeta_max'] = []
+
 
     def to_pandas(self):
-        return pd.DataFrame(self.data,index='index')
+        dct = {}
+        for key,value in self.data.items():
+            if key == 'n_parts':
+                continue
+            
+            # print(key,len(np.shape(value)))
+            if len(np.shape(value)) == 1:
+                dct[key] = np.repeat(value,self.data['n_parts'])
+            elif len(np.shape(value)) == 2:
+                dct[key] = np.hstack(value)
+
+        return pd.DataFrame(dct)
 
     def process(self,monitor = None):
 
@@ -283,24 +315,6 @@ class Calculation_Buffer():
             self.call_ID = 0
         else:
             self.call_ID += 1
-
-        if self.data is None:
-            self.data = {}
-            self.data['index'] = []
-            self.data['start_at_turn'] = []
-            self.data['stop_at_turn']  = []
-            self.data['x_min'] = []
-            self.data['x_max'] = []
-            self.data['y_min'] = []
-            self.data['y_max'] = []
-            self.data['zeta_min'] = []
-            self.data['zeta_max'] = []
-            self.data['px_min'] = []
-            self.data['px_max'] = []
-            self.data['py_min'] = []
-            self.data['py_max'] = []
-            self.data['pzeta_min'] = []
-            self.data['pzeta_max'] = []
         
         if monitor is not None:
             self.monitor = monitor
@@ -308,6 +322,7 @@ class Calculation_Buffer():
 
         start_at_turn = self.monitor.start_at_turn
         stop_at_turn  = self.monitor.stop_at_turn
+        n_parts       = self.monitor.part_id_end - self.monitor.part_id_start
 
         # Note: 2D array are ordered following [particles,turns]
         x_max  = np.max(self.monitor.x,axis=1)
@@ -317,7 +332,7 @@ class Calculation_Buffer():
         zeta_max  = np.max(self.monitor.zeta,axis=1)
 
         # ptau/beta0 -> ignoring division by zeros
-        pzeta = np.divide(self.monitor.ptau,self.monitor.beta0, np.zeros_like(self.monitor) + np.nan,where=self.monitor.beta0!=0)
+        pzeta = np.divide(self.monitor.ptau,self.monitor.beta0, np.zeros_like(self.monitor.ptau) + np.nan,where=self.monitor.beta0!=0)
         pzeta_max = np.max(pzeta,axis=1)
 
         # same for min
@@ -330,7 +345,10 @@ class Calculation_Buffer():
 
         # Appending to data
         #-------------------------
-        self.data['index'].append(self.call_ID)
+        self.data['Chunk ID'].append(self.call_ID)
+        self.data['n_parts'].append(n_parts)
+        self.data['particle'].append(self.monitor.particle_id[:,-1])
+        self.data['state'].append(self.monitor.state[:,-1])
         self.data['start_at_turn'].append(start_at_turn)
         self.data['stop_at_turn'].append(stop_at_turn)
         self.data['x_min'].append(x_min)
@@ -356,7 +374,7 @@ class Calculation_Buffer():
 class Tracking_Interface():
     
     def __init__(self,line=None,particles=None,n_turns=None,method='6D',progress=False,progress_turn_chunk = None,_context=None,
-                            monitor=None,rebuild = False,extract_columns = None,
+                            monitor=None,rebuild = False,extract_columns = None,calculation_buffer = None,
                             nemitt_x = None,nemitt_y = None,nemitt_zeta = None,partition_name = None,partition_ID = None):
         
         # Tracking
@@ -372,7 +390,8 @@ class Tracking_Interface():
             self.n_parts   = len(particles.particle_id)
         else:
             self.n_parts   = None
-
+        
+        
         self._df       = None
         self._df_n     = None
         self._df_sig   = None
@@ -380,6 +399,11 @@ class Tracking_Interface():
         self._coord    = None
         self._coord_n  = None
         self._coord_sig= None
+
+        self._calculations = None
+        self.calculation_buffer = calculation_buffer
+        self.parquet_data  = '_df'
+        
 
         self.context         = _context
 
@@ -480,13 +504,13 @@ class Tracking_Interface():
     @classmethod
     def from_parquet(cls,data_path,partition_name=None,partition_ID=None,variables = None):
         self = cls()
-        self._df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables)
-
+        
         meta_path = f'{data_path}/{partition_name}={partition_ID}/meta_data.json'
 
         with open(meta_path , "r") as file: 
             metadata = json.load(file)
 
+        self.parquet_data    = metadata['parquet_data']
         self.partition_name  = metadata['partition_name']
         self.partition_ID    = metadata['partition_ID']
         self.n_turns         = metadata['n_turns']
@@ -498,6 +522,11 @@ class Tracking_Interface():
 
         self.W_matrix        = np.array(metadata['W_matrix'])
         self.particle_on_co  = xp.Particles.from_dict(metadata['particle_on_co'])
+
+        if self.parquet_data == '_df':
+            self._df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables)
+        elif self.parquet_data == '_calculations':
+            self._calculations = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables)
 
         return self
 
@@ -527,23 +556,35 @@ class Tracking_Interface():
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
 
-    def to_parquet(self,filename,partition_name = None,partition_ID = None):
+    def to_parquet(self,filename,partition_name = None,partition_ID = None,parquet_data = None):
         if partition_name is not None:
             self.partition_name = partition_name  
         if partition_ID is not None:
             self.partition_ID   = partition_ID
+        if parquet_data is not None:
+            self.parquet_data   = parquet_data
 
         # Export to parquet, partitioned in sub folder
         #---------------------------------------
-        self._df.insert(0,self.partition_name,self.partition_ID)
-        self._df.to_parquet(filename,    partition_cols         = [self.partition_name],
-                                        existing_data_behavior = 'delete_matching',
-                                        basename_template      = 'tracking_data_{i}.parquet')
-        self._df.drop(columns=[self.partition_name],inplace=True)
+        if self.parquet_data == '_df':
+            _ = self.df
+            self._df.insert(0,self.partition_name,self.partition_ID)
+            self._df.to_parquet(filename,    partition_cols         = [self.partition_name],
+                                            existing_data_behavior = 'delete_matching',
+                                            basename_template      = 'tracking_data_{i}.parquet')
+            self._df.drop(columns=[self.partition_name],inplace=True)
+        elif self.parquet_data == '_calculations':
+            _ = self.calculations
+            self._calculations.insert(0,self.partition_name,self.partition_ID)
+            self._calculations.to_parquet(filename, partition_cols         = [self.partition_name],
+                                                    existing_data_behavior = 'delete_matching',
+                                                    basename_template      = 'calculation_data_{i}.parquet')
+            self._calculations.drop(columns=[self.partition_name],inplace=True)
         #---------------------------------------
 
         # Export metadata as well
-        metadata = {'partition_name'  : self.partition_name,
+        metadata = {'parquet_data'    : self.parquet_data,
+                    'partition_name'  : self.partition_name,
                     'partition_ID'    : self.partition_ID,
                     'n_turns'         : self.n_turns,
                     'n_parts'         : self.n_parts,
@@ -578,6 +619,11 @@ class Tracking_Interface():
             self._coord_sig = self.df_sig.groupby('turn').get_group(0).drop(columns=['turn'])
         return self._coord_sig
 
+    @property
+    def calculations(self):
+        if self._calculations is None:
+            self._calculations = self.calculation_buffer.to_pandas()
+        return self._calculations
 
     @property
     def df(self):
@@ -665,8 +711,8 @@ class Tracking_Interface():
 
     def runTracking(self,line,particles,method = '6d'):
 
-
-        self.calculation_buffer = Calculation_Buffer()
+        # if self.calculation_buffer is None:
+        # self.calculation_buffer = Calculation_Buffer()
 
 
         if method=='4d':
@@ -685,22 +731,28 @@ class Tracking_Interface():
             for chunk in chunks:
                 if chunk == 0:
                     continue
+
+                if self.calculation_buffer is not None:
+                    # Set_monitor
+                    last_turn = self.context.nparray_from_context_array(particles.at_turn).max()
+                    self.monitor = xt.ParticlesMonitor( _context         = self.context,
+                                                        start_at_turn    = last_turn, 
+                                                        stop_at_turn     = last_turn + chunk,
+                                                        n_repetitions    = 1,
+                                                        repetition_period= 1,
+                                                    num_particles    = self.n_parts)
+
+
                 line.track(particles, num_turns=chunk,turn_by_turn_monitor=self.monitor)
                 
                 # Dummy access to the data for clock time
                 _ = self.monitor.stop_at_turn
 
                 # Chunk Computation
-                self.calculation_buffer.process(monitor=self.monitor)
+                if self.calculation_buffer is not None:
+                    self.calculation_buffer.process(monitor=self.monitor)
 
-                # Reset_monitor
-                last_turn = self.context.nparray_from_context_array(particles.at_turn).max()
-                self.monitor = xt.ParticlesMonitor( _context         = self.context,
-                                                    start_at_turn    = last_turn, 
-                                                    stop_at_turn     = last_turn + chunk,
-                                                    n_repetitions    = 1,
-                                                    repetition_period= 1,
-                                                    num_particles    = self.n_parts)
+                
 
                 self.updateProgressBar(chunk=chunk)
 
