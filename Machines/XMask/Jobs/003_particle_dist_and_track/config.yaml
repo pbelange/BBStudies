@@ -6,19 +6,25 @@ tracking:
 
   user_context  : GPU
   collider_path : ../001_configure_collider/zfruits/collider_001.json
-  tracking_path : zfruits/tracking
+  tracking_path : zfruits/split_tracking_2s
 
   sequence: lhcb1
   n_parts : 20e3
-  n_turns : 1000
+  n_turns : 22490
+
+  
+  # Estimate file size: 1 GB per 1000 turns per 20k particles
+  partition_per_turn : true
+  partition_chunks   : 50
 
 
-monitor:
 
-  start_at_turn    : 0
-  stop_at_turn     : n_turns
-  n_repetitions    : 1
-  repetition_period: 1
+# monitor:
+
+#   start_at_turn    : 0
+#   stop_at_turn     : n_turns
+#   n_repetitions    : 1
+#   repetition_period: 1
 
 
 

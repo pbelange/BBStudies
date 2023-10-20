@@ -367,7 +367,12 @@ class Calculation_Buffer():
 
 
 
-
+def split_in_chunks(turns,n_chunks):
+    main_chunk = turns//n_chunks
+    chunks     = n_chunks*[main_chunk]+ [np.mod(turns,n_chunks)]
+    if chunks[-1]==0:
+        chunks = chunks[:-1]
+    return chunks
 
 # NEW Tracking class:
 #===================================================
@@ -379,9 +384,14 @@ class Tracking_Interface():
         
         # Tracking
         #-------------------------
+        self.context        = _context
+        self.context_name   = self.context.__class__.__name__
+        self.monitor        = monitor
         self.partition_name = partition_name 
         self.partition_ID   = partition_ID 
 
+        self.start_at_turn = None
+        self.stop_at_turn  = None
         if n_turns is not None:
             self.n_turns   = int(n_turns)
         else:
@@ -391,7 +401,15 @@ class Tracking_Interface():
         else:
             self.n_parts   = None
         
-        
+        # Saving emittance
+        self.nemitt_x = nemitt_x
+        self.nemitt_y = nemitt_y
+        self.nemitt_zeta = nemitt_zeta
+        #-------------------------
+
+
+        # Dataframes
+        #-------------------------
         self._df       = None
         self._df_n     = None
         self._df_sig   = None
@@ -403,18 +421,9 @@ class Tracking_Interface():
         self._calculations = None
         self.calculation_buffer = calculation_buffer
         self.parquet_data  = '_df'
-        
-
-        self.context         = _context
 
         if extract_columns is None:
             self.extract_columns = ['at_turn','particle_id','x','px','y','py','zeta','pzeta','state','at_element']
-        
-
-        # Saving emittance
-        self.nemitt_x = nemitt_x
-        self.nemitt_y = nemitt_y
-        self.nemitt_y = nemitt_zeta
         #-------------------------
 
 
@@ -431,41 +440,11 @@ class Tracking_Interface():
         #-------------------------
         self.progress_turn_chunk = progress_turn_chunk
         self.progress  = progress
+        self.exec_time = None
         self._plive    = None
         self._pstatus  = None
         #-------------------------
 
-
-        # Create monitor if needed
-        #--------------------------
-        if (monitor is None) and (particles is not None):
-            # Overwritting object in memory if it already exists:
-            if hasattr(line, 'record_last_track'):
-                self.monitor = line.record_last_track
-            
-            # Creating new instance, starting where previous tracking left off
-            # To start new tracking, reinitiate the particles object!
-            start_at_turn = self.context.nparray_from_context_array(particles.at_turn).max()
-
-            self.monitor = xt.ParticlesMonitor( _context         = self.context,
-                                                start_at_turn    = start_at_turn, 
-                                                stop_at_turn     = start_at_turn + self.n_turns,
-                                                n_repetitions    = 1,
-                                                repetition_period= 1,
-                                                num_particles    = self.n_parts)
-        else:
-            self.monitor = monitor
-        #-------------------------
-
-
-        # Rebuilt tracker and attach to context
-        #-------------------------
-        if line is not None:
-            if rebuild:
-                line.discard_tracker()
-                line.build_tracker(_context=self.context)
-                particles.move(_context=self.context)
-        #-------------------------
 
         # Relevant twiss information
         #--------------------------
@@ -482,14 +461,25 @@ class Tracking_Interface():
 
         # Tracking
         #--------------------------
-        self.method = method.lower()
         if line is not None:
+            self.method = method.lower()
             assert (method.lower() in ['4d','6d']), 'method should either be 4D or 6D (default)'
             try:
-                self.runTracking(line,particles,method=method.lower())
+                if method=='4d':
+                    line.freeze_longitudinal(True)
+
+                # Track
+                #=================
+                self.runTracking(line,particles)
+                #=================
+
+                # Unfreeze longitudinal
+                if method=='4d':
+                    line.freeze_longitudinal(False)
+
             except Exception as error:
                 self.closeLiveDisplay()
-                print("An error occurred:", type(error).__name__, "–", error)
+                print("An error occurred:", type(error).__name__, " - ", error)
                 traceback.print_exc()
             except KeyboardInterrupt:
                 self.closeLiveDisplay()
@@ -513,7 +503,11 @@ class Tracking_Interface():
         self.parquet_data    = metadata['parquet_data']
         self.partition_name  = metadata['partition_name']
         self.partition_ID    = metadata['partition_ID']
+        self.context_name    = metadata['context_name']
+        self.exec_time       = metadata['exec_time']
         self.n_turns         = metadata['n_turns']
+        self.start_at_turn   = metadata['start_at_turn']
+        self.stop_at_turn    = metadata['stop_at_turn']
         self.n_parts         = metadata['n_parts']
         self.nemitt_x        = metadata['nemitt_x']
         self.nemitt_y        = metadata['nemitt_y']
@@ -586,7 +580,11 @@ class Tracking_Interface():
         metadata = {'parquet_data'    : self.parquet_data,
                     'partition_name'  : self.partition_name,
                     'partition_ID'    : self.partition_ID,
+                    'context_name'    : self.context_name,
+                    'exec_time'       : self.exec_time,
                     'n_turns'         : self.n_turns,
+                    'start_at_turn'   : self.start_at_turn,
+                    'stop_at_turn'    : self.stop_at_turn,
                     'n_parts'         : self.n_parts,
                     'nemitt_x'        : self.nemitt_x,
                     'nemitt_y'        : self.nemitt_y,
@@ -709,49 +707,67 @@ class Tracking_Interface():
         return self._tunes_n
 
 
-    def runTracking(self,line,particles,method = '6d'):
+    def initialize_monitor(self,start_at_turn=0,nturns = 1):
+        self.monitor = xt.ParticlesMonitor( _context = self.context,num_particles = self.n_parts,
+                                                start_at_turn    = start_at_turn, 
+                                                stop_at_turn     = start_at_turn + nturns)
 
-        # if self.calculation_buffer is None:
-        # self.calculation_buffer = Calculation_Buffer()
+    
+    def runTracking(self,line,particles):
+
+        # Initiating monitor
+        #-------------------------------
+        if self.monitor is None:
+            last_turn = self.context.nparray_from_context_array(particles.at_turn).max()
+            self.initialize_monitor(start_at_turn=last_turn,nturns = self.n_turns)
+        #-------------------------------
+
+        # Saving turn infos
+        self.start_at_turn = self.monitor.start_at_turn
+        self.stop_at_turn  = self.monitor.stop_at_turn
 
 
-        if method=='4d':
-            line.freeze_longitudinal(True)
+        if not self.progress:
+            # Regular tracking if no progress needed
+            line.track(particles, num_turns=self.n_turns,turn_by_turn_monitor=self.monitor)
+
+        else:
             
-        if self.progress:
-            
-            # Run turn-by-turn or by chunk to show progress
-            self.startProgressBar()
+            # Splitting in desired progress chunk, or turn-by-turn
+            # Note: there is always 1 single turn to start with to get a time estimate
             #-------------------------
             if self.progress_turn_chunk is None:
                 self.progress_turn_chunk = 1
                 
             main_chunk = self.n_turns-1
             chunks = [1] + (main_chunk//self.progress_turn_chunk)*[self.progress_turn_chunk]+ [np.mod(main_chunk,self.progress_turn_chunk)]
+            #--------------------------
+
+            # TRACKING
+            self.startProgressBar()
             for chunk in chunks:
                 if chunk == 0:
                     continue
 
+                #---------------
                 if self.calculation_buffer is not None:
-                    # Set_monitor
+                    # Overwrite monitor with every chunk
                     last_turn = self.context.nparray_from_context_array(particles.at_turn).max()
-                    self.monitor = xt.ParticlesMonitor( _context         = self.context,
-                                                        start_at_turn    = last_turn, 
-                                                        stop_at_turn     = last_turn + chunk,
-                                                        n_repetitions    = 1,
-                                                        repetition_period= 1,
-                                                    num_particles    = self.n_parts)
+                    self.initialize_monitor(start_at_turn=last_turn,nturns = chunk)
+                #---------------
 
-
+                # Regular tracking with num_turns = chunk
+                #---------------
                 line.track(particles, num_turns=chunk,turn_by_turn_monitor=self.monitor)
-                
-                # Dummy access to the data for clock time
-                _ = self.monitor.stop_at_turn
+                _ = self.monitor.stop_at_turn # Dummy access to data for time clock
+                #---------------
+
 
                 # Chunk Computation
+                #---------------
                 if self.calculation_buffer is not None:
                     self.calculation_buffer.process(monitor=self.monitor)
-
+                #---------------
                 
 
                 self.updateProgressBar(chunk=chunk)
@@ -759,25 +775,6 @@ class Tracking_Interface():
 
             #-------------------------
             self.closeLiveDisplay()
-
-
-        else:
-            self.startSpinner()
-
-            line.track(particles, num_turns=self.n_turns,turn_by_turn_monitor=self.monitor)
-            
-            # Dummy access to the data for clock time
-            _ = self.context.nparray_from_context_array(particles.at_turn).max()
-
-            self.closeLiveDisplay()
-
-
-        
-
-
-        # Unfreeze longitudinal
-        if method=='4d':
-            line.freeze_longitudinal(False)
 
 
 
@@ -816,200 +813,14 @@ class Tracking_Interface():
         self._plive.stop()
         self._plive.console.clear_live()
 
-#===================================================
-
-
-
-
-
-
-
-
-# OLD Tracking class:
-#===================================================
-class Tracking():
-    
-    def __init__(self,tracker,particles,n_turns,method='6D',progress=False,saveVars = False):
-        
-        #self.particles = particles.copy()
-        self.n_turns   = int(n_turns)
-        self.vars      = None
-
-        # Footprint info
-        self._tunes    = None
-        self._tunes_n  = None
-        self._tunesMTD    = 'pynaff'
-        self._oldTunesMTD = 'pynaff'
-
-        # Savevars if needed
-        if saveVars:
-            self.vars = tracker.vars.copy()
-
-        # Progress info
-        self.progress  = progress
-        self._plive    = None
-        self._pstatus  = None
-        
-        # Tracking
-        self.monitor   = None
-        self.df        = None
-
-        assert (method.lower() in ['4d','6d']), 'method should either be 4D or 6D (default)'
-        try:
-            self.runTracking(tracker,particles,method=method.lower())
-        except KeyboardInterrupt:
-            self.closeLiveDisplay()
-
-
-        # Disabling Tracking
-        self.runTracking = lambda _: print('New Tracking instance needed')
-    
-    def to_pickle(self,filename):
-        self.progress     = None
-        self.monitor      = None
-        self.progress     = None
-        self._plive       = None
-        self._pstatus     = None
-        self.runTracking  = None
-
-        with open(filename, 'wb') as f:
-            pickle.dump(self, f)
-
-    @property
-    def tunes(self):
-        # Reset if method is changed
-        if self._tunesMTD != self._oldTunesMTD:
-            self._tunes   = None
-            self._tunes_n = None
-
-        if self._tunes is None:
-            if self._tunesMTD == 'pynaff':
-                self._oldTunesMTD = 'pynaff'
-                self._tunes    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.PyNAFF_tune(_part['x']),'Qy':footp.PyNAFF_tune(_part['y'])}))
-            if self._tunesMTD == 'fft':
-                self._oldTunesMTD = 'fft'
-                self._tunes    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.FFT_tune(_part['x']),'Qy':footp.FFT_tune(_part['y'])}))
-            if self._tunesMTD == 'nafflib':
-                self._oldTunesMTD = 'nafflib'
-                self._tunes    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.NAFFlib_tune(_part['x']),'Qy':footp.NAFFlib_tune(_part['y'])}))
-        
-        return self._tunes
-
-    @property
-    def tunes_n(self):
-        # Reset if method is changed
-        if self._tunesMTD != self._oldTunesMTD:
-            self._tunes   = None
-            self._tunes_n = None
-
-        if self._tunes_n is None:
-            if self._tunesMTD == 'pynaff':
-                self._oldTunesMTD = 'pynaff'
-                self._tunes_n    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.PyNAFF_tune(_part['x_n']),'Qy':footp.PyNAFF_tune(_part['y_n'])}))
-            if self._tunesMTD == 'fft':
-                self._oldTunesMTD = 'fft'
-                self._tunes_n    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.FFT_tune(_part['x_n']),'Qy':footp.FFT_tune(_part['y_n'])}))
-            if self._tunesMTD == 'nafflib':
-                self._oldTunesMTD = 'nafflib'
-                self._tunes_n    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.NAFFlib_tune(_part['x_n']),'Qy':footp.NAFFlib_tune(_part['y_n'])}))
-        
-        return self._tunes_n
-
-
-    def runTracking(self,tracker,particles,method = '6d'):
-
-        if method=='4d':
-            config = xt.tracker.TrackerConfig()
-            config.update(tracker.config)
-
-            _tracker = tracker
-            _tracker.freeze_longitudinal(True)
-            
-            # Some checks
-            assert _tracker.line is tracker.line
-            assert _tracker._buffer is tracker._buffer
-            
-            
-        else:
-            _tracker = tracker
-
-        if self.progress:
-            # Create monitor if needed
-            if self.monitor is None:
-                self.monitor = xt.ParticlesMonitor( start_at_turn    = 0, 
-                                                    stop_at_turn     = self.n_turns,
-                                                    n_repetitions    = 1,
-                                                    repetition_period= 1,
-                                                    num_particles    = len(particles.particle_id))
-
-            # Run turn-by-turn to show progress
-            self.startProgressBar()
-            #-------------------------
-            for iturn in range(self.n_turns):
-                self.monitor.track(particles)
-                _tracker.track(particles)
-                self.updateProgressBar()
-            #-------------------------
-            self.closeLiveDisplay()
-
-            #CONVERT TO PANDAS
-            self.df = pd.DataFrame(self.monitor.to_dict()['data'])
-
-        else:
-            # self.startSpinner()
-            _tracker.track(particles, num_turns=self.n_turns,turn_by_turn_monitor=True)
-            # self.closeLiveDisplay()
-
-            #CONVERT TO PANDAS
-            self.df = pd.DataFrame(_tracker.record_last_track.to_dict()['data'])
-        
-        # Filter the data
-        self.df.insert(list(self.df.columns).index('zeta'),'pzeta',self.df['ptau']/self.df['beta0'])
-        self.df = self.df[['at_turn','particle_id','x','px','y','py','zeta','pzeta','state']]
-        self.df.rename(columns={"at_turn": "turn",'particle_id':'particle'},inplace=True)
-
-        # Return in normalized space as well:
-        # NOTE: twiss can only be done on tracker6D!!
-        coord_n = W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],twiss=_tracker.twiss(method=method),to_pd=True)
-        self.df = pd.concat([self.df,coord_n],axis=1)
-
-        # Unfreeze longitudinal
-        if method=='4d':
-            tracker.config = config
-
-    # Progress bar methods
-    #=============================================================================
-    def startProgressBar(self,):
-        self._plive = Progress("{task.description}",
-                                TextColumn("[progress.remaining] ["),TimeRemainingColumn(),TextColumn("[progress.remaining]remaining ]   "),
-                                SpinnerColumn(),
-                                BarColumn(bar_width=40),
-                                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                                TimeElapsedColumn())
-
-        self._plive.start()
-        self._plive.live._disable_redirect_io()
-
-        self._pstatus = self._plive.add_task("[blue]Tracking\n", total=self.n_turns)
-    
-    def updateProgressBar(self,):
-        self._plive.update(self._pstatus, advance=1,update=True)
-
-        
-    def startSpinner(self,):
-        self._plive = Progress("{task.description}",
-                                SpinnerColumn(),
-                                TextColumn("[progress.elapsed] ["),TimeElapsedColumn (),TextColumn("[progress.elapsed]elapsed ]   "))
-
-        self._plive.start()
-        self._plive.live._disable_redirect_io()
-
-        self._pstatus = self._plive.add_task("[blue]Tracking", total=self.n_turns)
-
-
-    def closeLiveDisplay(self,):
-        self._plive.refresh()
-        self._plive.stop()
-        self._plive.console.clear_live()
+        # Saving execution time in seconds
+        self.exec_time = self._plive.tasks[0].finished_time
 
 #===================================================
+
+
+
+
+
+
+

@@ -171,37 +171,45 @@ def particle_dist_and_track():
     # Tracking
     #----------------------------------
     print('START TRACKING...')
-    tracked = xPlus.Tracking_Interface( line      = line,
-                                        particles = particles,
-                                        n_turns   = n_turns,
-                                        progress  = True,
-                                        rebuild   = False,
-                                        monitor   = None,
-                                        method    ='6D',
-                                        _context   = context)
+    
+    # Finding number of chunks:
+    #==============================
+    if config['tracking']['partition_per_turn']:
+        n_chunks = config['tracking']['partition_chunks']
+    else:
+        n_chunks = 1
+    chunks   = xPlus.split_in_chunks(n_turns,n_chunks)
+    #==============================
 
-    # Saving emittance:
-    tracked.nemitt_x    = nemitt_x
-    tracked.nemitt_y    = nemitt_y
-    tracked.nemitt_zeta = 1#nemitt_zeta
-    #----------------------------------
-
-
-
-    # Saving results
-    #----------------------------------
     # Preparing output folder
+    #==============================
     if not Path('zfruits').exists():
         Path('zfruits').mkdir()
-        
+    #==============================
 
-    # Setting Bunch number for partitionning
-    parquet_path = config['tracking']['tracking_path']
-    bunch_ID     = str(bunch_number).zfill(4)
+    
+    for ID,chunk in enumerate(chunks):
+        tracked = xPlus.Tracking_Interface( line      = line,
+                                            particles = particles,
+                                            _context   = context,
+                                            n_turns   = chunk,
+                                            progress  = True,
+                                            progress_turn_chunk = 100,
+                                            monitor   = None,
+                                            nemitt_x  = nemitt_x,
+                                            nemitt_y  = nemitt_y,
+                                            nemitt_zeta = 1)
 
-    print(f'SAVING TO PARQUET... -> {parquet_path}')
-    tracked.to_parquet(parquet_path,partition_name='BUNCH',partition_ID=bunch_ID)
-    #----------------------------------
+
+        # Saving Chunk
+        #--------------------------
+        parquet_path = config['tracking']['tracking_path']
+        print(f'SAVING TO PARQUET... -> {parquet_path}')
+        tracked.to_parquet(parquet_path,partition_name='CHUNK',partition_ID=str(ID).zfill(3))
+        #--------------------------
+
+
+
 
     return particles,tracked
 
