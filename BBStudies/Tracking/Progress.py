@@ -75,8 +75,8 @@ class ProgressBar():
             self.Progress.update(self.subtasks[-1].id, advance=chunk,update=True,refresh=True)
         
             completed = sum([1 for subtask in self.subtasks if subtask.finished])
-            # if self.subtasks[-1].finished:
-            self.Progress.update(self.main_task.id, total = self.n_steps,completed=completed,update=True)
+            if self.subtasks[-1].finished:
+                self.Progress.update(self.main_task.id, total = self.n_steps,completed=completed,update=True)
         else:
             self.Progress.update(self.main_task.id, advance=chunk,update=True)
 
