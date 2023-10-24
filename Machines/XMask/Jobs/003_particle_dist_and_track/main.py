@@ -18,6 +18,7 @@ import sys
 sys.path.append('/Users/pbelanger/ABPLocal/BBStudies')
 sys.path.append('/home/phbelang/abp/BBStudies')
 import BBStudies.Tracking.XsuitePlus as xPlus
+import BBStudies.Tracking.Progress as pbar
 import BBStudies.Tracking.InteractionPoint as inp
 import BBStudies.Physics.Detuning as tune
 import BBStudies.Plotting.BBPlots as bbplt
@@ -213,7 +214,13 @@ def particle_dist_and_track():
     print('START TRACKING...')
     parquet_path = config['tracking']['parquet_path']
     ID_length    = len(str(len(chunks)))
+
+    PBar = pbar.ProgressBar(message='___  Tracking  ___',color='blue',n_steps=len(chunks),max_visible=3)
+    PBar.start()
     for ID,chunk in enumerate(chunks):
+
+        # Updating progress bar
+        PBar.add_subtask(ID,message = f'CHUNK {str(ID).zfill(ID_length)}/{str(len(chunks)-1).zfill(ID_length)}',color = 'red',n_steps = chunk,level=2)
 
         # Setting monitor to make sure we can overwrite it
         #--------------------------------------------
@@ -235,7 +242,7 @@ def particle_dist_and_track():
                                             nemitt_x  = nemitt_x,
                                             nemitt_y  = nemitt_y,
                                             nemitt_zeta = 1,
-                                            progress    = True,
+                                            Pbar        = PBar,
                                             progress_divide = 100)
         #--------------------------------------------
 

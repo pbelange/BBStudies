@@ -18,6 +18,7 @@ import xpart as xp
 from xdeps.refs import ARef
 
 import BBStudies.Analysis.Footprint as footp
+import BBStudies.Tracking.Progress as pbar
 
 
 
@@ -378,14 +379,16 @@ class Data_Buffer():
 
 def split_in_chunks(turns,n_chunks = None,main_chunk = None):
     if n_chunks is not None:
-        main_chunk = turns//n_chunks
-        chunks     = n_chunks*[main_chunk]+ [np.mod(turns,n_chunks)]
+        main_chunk = np.round(turns/n_chunks)
+        chunks     = (n_chunks-1)*[main_chunk] + [np.mod(turns,n_chunks-1)]
+       
     elif main_chunk is not None:
         n_chunks = turns//main_chunk
         chunks     = n_chunks*[main_chunk]+ [np.mod(turns,main_chunk)]
     
     if chunks[-1]==0:
         chunks = chunks[:-1]
+
     return chunks
 
 
@@ -401,8 +404,8 @@ def split_in_chunks(turns,n_chunks = None,main_chunk = None):
 #===================================================
 class Tracking_Interface():
     
-    def __init__(self,line=None,particles=None,n_turns=None,method='6D',progress=False,progress_divide = None,_context=None,
-                            monitor=None,rebuild = False,extract_columns = None,
+    def __init__(self,line=None,particles=None,n_turns=None,method='6D',Pbar = None,progress=False,progress_divide = 100,_context=None,
+                            monitor=None,extract_columns = None,
                             nemitt_x = None,nemitt_y = None,nemitt_zeta = None,partition_name = None,partition_ID = None):
         
         # Tracking
@@ -461,10 +464,18 @@ class Tracking_Interface():
         # Progress info
         #-------------------------
         self.progress_divide = progress_divide
-        self.progress  = progress
+        self.progress        = progress
+        if (Pbar is None) and (progress):
+            self.PBar = pbar.ProgressBar(message = 'Tracking ...',color='blue',n_steps = self.n_turns)
+        elif Pbar is not None:
+            self.PBar     = Pbar
+            self.progress = True
+        else:
+            self.PBar     = None
+            self.progress = False
         self.exec_time = None
-        self._plive    = None
-        self._pstatus  = None
+        # self._plive    = None
+        # self._pstatus  = None
         #-------------------------
 
 
@@ -492,7 +503,7 @@ class Tracking_Interface():
 
                 # Track
                 #=================
-                self.runTracking(line,particles)
+                self.run_tracking(line,particles)
                 #=================
 
                 # Unfreeze longitudinal
@@ -500,17 +511,17 @@ class Tracking_Interface():
                     line.freeze_longitudinal(False)
 
             except Exception as error:
-                self.closeLiveDisplay()
+                self.PBar.close()
                 print("An error occurred:", type(error).__name__, " - ", error)
                 traceback.print_exc()
             except KeyboardInterrupt:
-                self.closeLiveDisplay()
+                self.PBar.close()
                 print("Terminated by user: KeyboardInterrupt")
         #--------------------------
 
         # Disabling Tracking
         #-------------------------
-        self.runTracking = lambda _: print('New Tracking instance needed')
+        self.run_tracking = lambda _: print('New Tracking instance needed')
         #-------------------------
 
 
@@ -585,9 +596,10 @@ class Tracking_Interface():
         self.progress     = None
         self.monitor      = None
         self.progress     = None
-        self._plive       = None
-        self._pstatus     = None
-        self.runTracking  = None
+        self.PBar     = None
+        # self._plive       = None
+        # self._pstatus     = None
+        self.run_tracking  = None
 
         self._tunes    = None
         self._tunes_n  = None
@@ -755,7 +767,7 @@ class Tracking_Interface():
                                                 stop_at_turn     = start_at_turn + nturns)
         return monitor
 
-    def runTracking(self,line,particles):
+    def run_tracking(self,line,particles):
 
         # Initiating monitor
         #-------------------------------
@@ -784,8 +796,14 @@ class Tracking_Interface():
                 chunks = [1] + split_in_chunks(self.n_turns-1,main_chunk=1)
             #--------------------------
 
+            
+            # PBAR
+            #-------------------
+            if not self.PBar.main_task.started:
+                self.PBar.start()
+            #-------------------
+
             # TRACKING
-            self.startProgressBar()
             for chunk in chunks:
                 if chunk == 0:
                     continue
@@ -796,51 +814,56 @@ class Tracking_Interface():
                 _ = self.monitor.stop_at_turn # Dummy access to data for time clock
                 #---------------                
 
-                self.updateProgressBar(chunk=chunk)
+                self.PBar.update(chunk=chunk)
 
 
             #-------------------------
-            self.closeLiveDisplay()
+            if self.PBar.main_task.finished:
+                self.PBar.close()
+            #-------------------------
+            
+            # Saving the last task as exec time (either subtask or main task)
+            self.exec_time = self.PBar.Progress.tasks[-1].finished_time
 
 
 
-    # Progress bar methods
-    #=============================================================================
-    def startProgressBar(self,):
-        self._plive = Progress("{task.description}",
-                                TextColumn("[progress.remaining] ["),TimeRemainingColumn(),TextColumn("[progress.remaining]remaining ]   "),
-                                SpinnerColumn(),
-                                BarColumn(bar_width=40),
-                                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                                TimeElapsedColumn())
+    # # Progress bar methods
+    # #=============================================================================
+    # def startProgressBar(self,):
+    #     self._plive = Progress("{task.description}",
+    #                             TextColumn("[progress.remaining] ["),TimeRemainingColumn(),TextColumn("[progress.remaining]remaining ]   "),
+    #                             SpinnerColumn(),
+    #                             BarColumn(bar_width=40),
+    #                             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+    #                             TimeElapsedColumn())
 
-        self._plive.start()
-        self._plive.live._disable_redirect_io()
+    #     self._plive.start()
+    #     self._plive.live._disable_redirect_io()
 
-        self._pstatus = self._plive.add_task("[blue]Tracking\n", total=self.n_turns)
+    #     self._pstatus = self._plive.add_task("[blue]Tracking\n", total=self.n_turns)
     
-    def updateProgressBar(self,chunk = 1):
-        self._plive.update(self._pstatus, advance=chunk,update=True)
+    # def updateProgressBar(self,chunk = 1):
+    #     self._plive.update(self._pstatus, advance=chunk,update=True)
 
 
-    def startSpinner(self,):
-        self._plive = Progress("{task.description}",
-                                SpinnerColumn('aesthetic',),
-                                TextColumn("[progress.elapsed] ["),TimeElapsedColumn (),TextColumn("[progress.elapsed]elapsed ]   "))
+    # def startSpinner(self,):
+    #     self._plive = Progress("{task.description}",
+    #                             SpinnerColumn('aesthetic',),
+    #                             TextColumn("[progress.elapsed] ["),TimeElapsedColumn (),TextColumn("[progress.elapsed]elapsed ]   "))
 
-        self._plive.start()
-        self._plive.live._disable_redirect_io()
+    #     self._plive.start()
+    #     self._plive.live._disable_redirect_io()
 
-        self._pstatus = self._plive.add_task("[blue]Tracking")
+    #     self._pstatus = self._plive.add_task("[blue]Tracking")
 
 
-    def closeLiveDisplay(self,):
-        self._plive.refresh()
-        self._plive.stop()
-        self._plive.console.clear_live()
+    # def closeLiveDisplay(self,):
+    #     self._plive.refresh()
+    #     self._plive.stop()
+    #     self._plive.console.clear_live()
 
-        # Saving execution time in seconds
-        self.exec_time = self._plive.tasks[0].finished_time
+    #     # Saving execution time in seconds
+    #     self.exec_time = self._plive.tasks[0].finished_time
 
     def __repr__(self,):
         rich.inspect(RenderingTracker(self),title='Tracking_Interface', docs=False)
