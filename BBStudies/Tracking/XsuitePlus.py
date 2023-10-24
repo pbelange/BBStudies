@@ -379,17 +379,20 @@ class Data_Buffer():
 
 def split_in_chunks(turns,n_chunks = None,main_chunk = None):
     if n_chunks is not None:
-        main_chunk = np.round(turns/n_chunks)
-        chunks     = (n_chunks-1)*[main_chunk] + [np.mod(turns,n_chunks-1)]
-       
+        # See https://numpy.org/doc/stable/reference/generated/numpy.array_split.html#numpy.array_split
+        l = turns
+        n = n_chunks
+        chunks = (l % n) * [l//n + 1] + (n-(l % n))*[l//n]
+        
     elif main_chunk is not None:
         n_chunks = turns//main_chunk
-        chunks     = n_chunks*[main_chunk]+ [np.mod(turns,main_chunk)]
+        chunks   = n_chunks*[main_chunk]+ [np.mod(turns,main_chunk)]
     
     if chunks[-1]==0:
         chunks = chunks[:-1]
 
     return chunks
+
 
 
 
@@ -821,7 +824,7 @@ class Tracking_Interface():
             if self.PBar.main_task.finished:
                 self.PBar.close()
             #-------------------------
-            
+
             # Saving the last task as exec time (either subtask or main task)
             self.exec_time = self.PBar.Progress.tasks[-1].finished_time
 
