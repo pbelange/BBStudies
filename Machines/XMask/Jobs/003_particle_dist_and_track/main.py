@@ -136,6 +136,7 @@ def particle_dist_and_track():
     #----------------------------------
     # Loading config
     config = read_configuration('config.yaml')
+    assert config['tracking']['partition_turns'] != config['tracking']['process_data'] , 'Cannot partition turns and process data at the same time'
 
     # Loading collider
     print('LOADING COLLIDER')
@@ -165,20 +166,24 @@ def particle_dist_and_track():
                                                 nemitt_y    = nemitt_y,
                                                 line        = line,
                                                  _context   = context)
+    n_parts  = len(particles.particle_id)
     #----------------------------------
 
 
-    # Tracking
-    #----------------------------------
-    print('START TRACKING...')
+
     
     # Finding number of chunks:
     #==============================
-    if config['tracking']['partition_per_turn']:
-        n_chunks = config['tracking']['partition_chunks']
+    if config['tracking']['partition_turns']:
+        n_chunks   = config['tracking']['partition_n_chunks']
+        main_chunk = None
+    elif config['tracking']['process_data']:
+        n_chunks   = config['tracking']['process_n_chunks']
+        main_chunk = config['tracking']['process_turn_chunk']
     else:
-        n_chunks = 1
-    chunks   = xPlus.split_in_chunks(n_turns,n_chunks)
+        n_chunks   = 1
+        main_chunk = None
+    chunks   = xPlus.split_in_chunks(n_turns,n_chunks=n_chunks,main_chunk=main_chunk)
     #==============================
 
     # Preparing output folder
@@ -187,26 +192,75 @@ def particle_dist_and_track():
         Path('zfruits').mkdir()
     #==============================
 
-    
+
+    def initialize_monitor(context = None,num_particles = 0,start_at_turn=0,nturns = 1):
+        monitor = xt.ParticlesMonitor( _context       = context,
+                                        num_particles = num_particles,
+                                        start_at_turn = start_at_turn, 
+                                        stop_at_turn  = start_at_turn + nturns)
+        return monitor
+
+    # Creating data buffer if needed
+    #----------------------------------
+    data_buffer = None
+    if config['tracking']['process_data']:
+        data_buffer = xPlus.Data_Buffer()
+    #----------------------------------
+
+
+    # Tracking
+    #----------------------------------
+    print('START TRACKING...')
+    parquet_path = config['tracking']['parquet_path']
+    ID_length    = len(str(len(chunks)))
     for ID,chunk in enumerate(chunks):
+
+        # Setting monitor to make sure we can overwrite it
+        #--------------------------------------------
+        last_turn    = context.nparray_from_context_array(particles.at_turn).max()
+        main_monitor = initialize_monitor(context       = context,
+                                          num_particles = len(particles.particle_id),
+                                          start_at_turn = last_turn,
+                                          nturns        = chunk)
+        #--------------------------------------------
+
+
+        # Tracking
+        #--------------------------------------------
         tracked = xPlus.Tracking_Interface( line      = line,
                                             particles = particles,
-                                            _context   = context,
+                                            _context  = context,
                                             n_turns   = chunk,
-                                            progress  = True,
-                                            progress_turn_chunk = 100,
-                                            monitor   = None,
+                                            monitor   = main_monitor,
                                             nemitt_x  = nemitt_x,
                                             nemitt_y  = nemitt_y,
-                                            nemitt_zeta = 1)
+                                            nemitt_zeta = 1,
+                                            progress    = True,
+                                            progress_divide = 100)
+        #--------------------------------------------
 
 
-        # Saving Chunk
+        # Data Buffer Computation
+        #---------------
+        if config['tracking']['process_data']:
+            data_buffer.process(monitor=main_monitor)
+        #---------------
+
+        # Saving Chunk if needed
         #--------------------------
-        parquet_path = config['tracking']['tracking_path']
-        print(f'SAVING TO PARQUET... -> {parquet_path}')
-        tracked.to_parquet(parquet_path,partition_name='CHUNK',partition_ID=str(ID).zfill(3))
+        if config['tracking']['partition_turns']:
+            # print(f'SAVING TO PARQUET... -> {parquet_path}')
+            tracked.to_parquet(parquet_path,partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length))
         #--------------------------
+
+    
+    # Saving data buffer if needed
+    #--------------------------
+    if config['tracking']['process_data']:
+        tracked.parquet_data = '_data'
+        tracked._data        = data_buffer.to_pandas()
+
+        tracked.to_parquet(parquet_path,partition_name='DATA',partition_ID='0001')
 
 
 

@@ -6,25 +6,56 @@ tracking:
 
   user_context  : GPU
   collider_path : ../001_configure_collider/zfruits/collider_001.json
-  tracking_path : zfruits/split_tracking_2s
-
+  
   sequence: lhcb1
   n_parts : 20e3
-  n_turns : 22490
+  
 
   
-  # Estimate file size: 1 GB per 1000 turns per 20k particles
-  partition_per_turn : true
-  partition_chunks   : 50
+  # #=========================================
+  # parquet_path : zfruits/split_tracking_2s
+  # n_turns : 22490
+
+  # # Estimate file size -> 1 GB per 1000 turns per 20k particles
+  # partition_turns    : false
+  # partition_n_chunks : 50
+  
+  # # Data processing
+  # process_data       : true
+  # process_n_turns    : null
+  # process_n_chunks   : 50
+  # #=========================================
 
 
+  # #=========================================
+  # parquet_path : zfruits/split_tracking_v2
+  # n_turns : 2000
 
-# monitor:
+  # # Estimate file size -> 1 GB per 1000 turns per 20k particles
+  # partition_turns    : true
+  # partition_n_chunks : 10
+  
+  # # Data processing
+  # process_data       : false
+  # process_n_turns    : null
+  # process_n_chunks   : null
+  # #=========================================
 
-#   start_at_turn    : 0
-#   stop_at_turn     : n_turns
-#   n_repetitions    : 1
-#   repetition_period: 1
+  #=========================================
+  parquet_path : zfruits/processed_tracking_2s
+  n_turns : 22490
+
+  # Estimate file size -> 1 GB per 1000 turns per 20k particles
+  partition_turns    : false
+  partition_n_chunks : null
+  
+  # Data processing
+  process_data       : true
+  process_turn_chunk : null
+  process_n_chunks   : 50
+  #=========================================
+  
+
 
 
 
