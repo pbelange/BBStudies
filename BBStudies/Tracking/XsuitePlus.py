@@ -408,7 +408,7 @@ def split_in_chunks(turns,n_chunks = None,main_chunk = None):
 class Tracking_Interface():
     
     def __init__(self,line=None,particles=None,n_turns=None,method='6D',Pbar = None,progress=False,progress_divide = 100,_context=None,
-                            monitor=None,extract_columns = None,
+                            monitor=None,monitor_at = None,extract_columns = None,
                             nemitt_x = None,nemitt_y = None,nemitt_zeta = None,partition_name = None,partition_ID = None):
         
         # Tracking
@@ -484,8 +484,18 @@ class Tracking_Interface():
 
         # Relevant twiss information
         #--------------------------
-        if line is not None:
-            _twiss = line.twiss(method=method.lower())
+
+        # cycle if needed
+        #--------
+        self.monitor_at = monitor_at
+        if self.monitor_at is not None:
+            _line = line.cycle(name_first_element=self.monitor_at, inplace=False)
+        else:
+            _line = line
+        #--------
+        
+        if _line is not None:
+            _twiss = _line.twiss(method=method.lower())
             self.W_matrix       = _twiss.W_matrix[0]
             self.particle_on_co = _twiss.particle_on_co 
         else:
@@ -497,21 +507,21 @@ class Tracking_Interface():
 
         # Tracking
         #--------------------------
-        if line is not None:
+        if _line is not None:
             self.method = method.lower()
             assert (method.lower() in ['4d','6d']), 'method should either be 4D or 6D (default)'
             try:
                 if method=='4d':
-                    line.freeze_longitudinal(True)
+                    _line.freeze_longitudinal(True)
 
                 # Track
                 #=================
-                self.run_tracking(line,particles)
+                self.run_tracking(_line,particles)
                 #=================
 
                 # Unfreeze longitudinal
                 if method=='4d':
-                    line.freeze_longitudinal(False)
+                    _line.freeze_longitudinal(False)
 
             except Exception as error:
                 self.PBar.close()
@@ -542,6 +552,7 @@ class Tracking_Interface():
                     'nemitt_y'        : self.nemitt_y,
                     'nemitt_zeta'     : self.nemitt_zeta,
                     'method'          : self.method,
+                    'monitor_at'      : self.monitor_at,
                     'W_matrix'        : self.W_matrix,
                     'particle_on_co'  : self.particle_on_co.to_dict()}
         return metadata
@@ -770,7 +781,7 @@ class Tracking_Interface():
                                                 stop_at_turn     = start_at_turn + nturns)
         return monitor
 
-    def run_tracking(self,line,particles):
+    def run_tracking(self,_line,particles):
 
         # Initiating monitor
         #-------------------------------
@@ -786,7 +797,7 @@ class Tracking_Interface():
 
         if not self.progress:
             # Regular tracking if no progress needed
-            line.track(particles, num_turns=self.n_turns,turn_by_turn_monitor=self.monitor)
+            _line.track(particles, num_turns=self.n_turns,turn_by_turn_monitor=self.monitor)
 
         else:
             
@@ -813,7 +824,7 @@ class Tracking_Interface():
 
                 # Regular tracking with num_turns = chunk
                 #---------------
-                line.track(particles, num_turns=chunk,turn_by_turn_monitor=self.monitor)
+                _line.track(particles, num_turns=chunk,turn_by_turn_monitor=self.monitor)
                 _ = self.monitor.stop_at_turn # Dummy access to data for time clock
                 #---------------                
 

@@ -59,7 +59,7 @@ def read_configuration(config_path="config.yaml"):
 # ==================================================================================================
 # --- Functions to load collider with a given context
 # ==================================================================================================
-def load_collider(collider_path = '../001_configure_collider/zfruits/collider_001.json',user_context = 'CPU'):
+def load_collider(collider_path = '../001_configure_collider/zfruits/collider_001.json',user_context = 'CPU',device_id = 0):
 
 
     # Load collider and install collimators
@@ -76,7 +76,7 @@ def load_collider(collider_path = '../001_configure_collider/zfruits/collider_00
     if user_context == 'CPU':
         context = xo.ContextCpu(omp_num_threads='auto')
     elif user_context == 'GPU':
-        context = xo.ContextCupy()
+        context = xo.ContextCupy(device = device_id)
     collider.build_trackers(_context=context)
     #--------------------------------------
 
@@ -87,7 +87,7 @@ def load_collider(collider_path = '../001_configure_collider/zfruits/collider_00
 # ==================================================================================================
 # --- Functions to generate particle distribution
 # ==================================================================================================
-def generate_particles(n_part = 1000,force_n_part = False,line = None,_context = None,nemitt_x = None,nemitt_y = None):
+def generate_particles(n_part = 1000,force_n_part = False,line = None,_context = None,at_element = None,nemitt_x = None,nemitt_y = None):
 
     n_part  = int(n_part)
     n_r     = int(np.floor(np.sqrt(n_part)))
@@ -120,6 +120,7 @@ def generate_particles(n_part = 1000,force_n_part = False,line = None,_context =
                                         y_norm  =coordinates.y_sig.values,
                                         py_norm =coordinates.py_sig.values,
                                         nemitt_x=nemitt_x, nemitt_y=nemitt_y,
+                                        at_element=at_element,
                                         _context=_context)
     else:
         particles = None
@@ -142,13 +143,18 @@ def particle_dist_and_track():
     # Loading collider
     print('LOADING COLLIDER')
     collider,context = load_collider(   collider_path = config['tracking']['collider_path'],
-                                        user_context  = config['tracking']['user_context'])
+                                        user_context  = config['tracking']['user_context'],
+                                        device_id     = config['tracking']['device_id'])
 
     # Parsing config
     sequence = config['tracking']['sequence']
     line     = collider[sequence]
     n_parts  = int(config['tracking']['n_parts'])
     n_turns  = int(config['tracking']['n_turns'])
+    monitor_at_dict = config['elements'][sequence]
+    monitor_at      = config['tracking']['monitor_at']
+    if monitor_at in monitor_at_dict.keys():
+        monitor_at = monitor_at_dict[monitor_at]
     #----------------------------------
 
 
@@ -166,6 +172,7 @@ def particle_dist_and_track():
                                                 nemitt_x    = nemitt_x,
                                                 nemitt_y    = nemitt_y,
                                                 line        = line,
+                                                at_element  = monitor_at,
                                                  _context   = context)
     n_parts  = len(particles.particle_id)
     #----------------------------------
@@ -239,6 +246,7 @@ def particle_dist_and_track():
                                             _context  = context,
                                             n_turns   = chunk,
                                             monitor   = main_monitor,
+                                            monitor_at= monitor_at,
                                             nemitt_x  = nemitt_x,
                                             nemitt_y  = nemitt_y,
                                             nemitt_zeta = 1,
@@ -264,6 +272,7 @@ def particle_dist_and_track():
     # Saving data buffer if needed
     #--------------------------
     if config['tracking']['process_data']:
+        tracked.exec_time    = PBar.main_task.finished_time
         tracked.parquet_data = '_data'
         tracked._data        = data_buffer.to_pandas()
 
