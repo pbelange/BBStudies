@@ -234,7 +234,7 @@ def import_parquet(data_path,partition_name=None,partition_ID=None,variables = N
         if stop_at_turn is None:
             stop_at_turn = 1e10
         
-        filters = [[('turn','>',start_at_turn),('turn','<',stop_at_turn)]]
+        filters = [[('turn','>=',start_at_turn),('turn','<=',stop_at_turn)]]
     # print()
     #-----------------------------
 
@@ -293,6 +293,8 @@ class Data_Buffer():
         self.data['x_max'] = []
         self.data['y_min'] = []
         self.data['y_max'] = []
+        self.data['skew_min'] = []
+        self.data['skew_max'] = []
         self.data['zeta_min'] = []
         self.data['zeta_max'] = []
         self.data['px_min'] = []
@@ -353,6 +355,18 @@ class Data_Buffer():
         zeta_min  = np.min(self.monitor.zeta,axis=1)
         pzeta_min = np.min(pzeta,axis=1)
 
+        # Shew coordinates
+        skew_angle   = 127.5 + 90 #skew coll angle, +90 because 0 corresponds to a horizontal collimator_n/vertical walls
+        theta_unskew = -np.deg2rad(skew_angle-90)
+        x_unskew = self.monitor.x*np.cos(theta_unskew) - self.monitor.y*np.sin(theta_unskew)
+        # No need for this one
+        # y_unskew = self.monitor.x*np.sin(theta_unskew) + self.monitor.y*np.cos(theta_unskew)
+
+        skew_min = np.min(x_unskew,axis=1)
+        skew_max = np.max(x_unskew,axis=1)
+
+
+
         # Appending to data
         #-------------------------
         self.data['Chunk ID'].append(self.call_ID)
@@ -365,6 +379,8 @@ class Data_Buffer():
         self.data['x_max'].append(x_max)
         self.data['y_min'].append(y_min)
         self.data['y_max'].append(y_max)
+        self.data['skew_min'].append(skew_min)
+        self.data['skew_max'].append(skew_max)
         self.data['zeta_min'].append(zeta_min)
         self.data['zeta_max'].append(zeta_max)
         self.data['px_min'].append(px_min)
@@ -409,7 +425,7 @@ class Tracking_Interface():
     
     def __init__(self,line=None,particles=None,n_turns=None,method='6D',Pbar = None,progress=False,progress_divide = 100,_context=None,
                             monitor=None,monitor_at = None,extract_columns = None,
-                            nemitt_x = None,nemitt_y = None,nemitt_zeta = None,partition_name = None,partition_ID = None):
+                            nemitt_x = None,nemitt_y = None,nemitt_zeta = None,sigma_z = None,partition_name = None,partition_ID = None):
         
         # Tracking
         #-------------------------
@@ -431,9 +447,10 @@ class Tracking_Interface():
             self.n_parts   = None
         
         # Saving emittance
-        self.nemitt_x = nemitt_x
-        self.nemitt_y = nemitt_y
+        self.nemitt_x    = nemitt_x
+        self.nemitt_y    = nemitt_y
         self.nemitt_zeta = nemitt_zeta
+        self.sigma_z  = sigma_z
         #-------------------------
 
 
@@ -489,13 +506,14 @@ class Tracking_Interface():
         #--------
         self.monitor_at = monitor_at
         if self.monitor_at is not None:
-            _line = line.cycle(name_first_element=self.monitor_at, inplace=False)
-        else:
-            _line = line
+            if line.element_names[0] != self.monitor_at:
+                line.cycle(name_first_element=self.monitor_at, inplace=True)
+        # else:
+            # _line = line
         #--------
         
-        if _line is not None:
-            _twiss = _line.twiss(method=method.lower())
+        if line is not None:
+            _twiss = line.twiss(method=method.lower())
             self.W_matrix       = _twiss.W_matrix[0]
             self.particle_on_co = _twiss.particle_on_co 
         else:
@@ -507,21 +525,21 @@ class Tracking_Interface():
 
         # Tracking
         #--------------------------
-        if _line is not None:
+        if line is not None:
             self.method = method.lower()
             assert (method.lower() in ['4d','6d']), 'method should either be 4D or 6D (default)'
             try:
                 if method=='4d':
-                    _line.freeze_longitudinal(True)
+                    line.freeze_longitudinal(True)
 
                 # Track
                 #=================
-                self.run_tracking(_line,particles)
+                self.run_tracking(line,particles)
                 #=================
 
                 # Unfreeze longitudinal
                 if method=='4d':
-                    _line.freeze_longitudinal(False)
+                    line.freeze_longitudinal(False)
 
             except Exception as error:
                 self.PBar.close()
@@ -551,6 +569,7 @@ class Tracking_Interface():
                     'nemitt_x'        : self.nemitt_x,
                     'nemitt_y'        : self.nemitt_y,
                     'nemitt_zeta'     : self.nemitt_zeta,
+                    'sigma_z'         : self.sigma_z,
                     'method'          : self.method,
                     'monitor_at'      : self.monitor_at,
                     'W_matrix'        : self.W_matrix,
@@ -664,7 +683,18 @@ class Tracking_Interface():
         with open(meta_path , "w") as outfile: 
             json.dump(metadata, outfile,cls=NpEncoder)
 
-        
+    @property
+    def sig_x(self):
+        if self.W_matrix is not None:         
+            return self.W_matrix[0,0]*np.sqrt(self.nemitt_x/self.particle_on_co.gamma0)
+        return None
+
+    @property
+    def sig_y(self):
+        if self.W_matrix is not None:         
+            return self.W_matrix[2,2]*np.sqrt(self.nemitt_y/self.particle_on_co.gamma0)
+        return None
+
 
     @property
     def coord(self):
@@ -764,13 +794,13 @@ class Tracking_Interface():
         if self._tunes_n is None:
             if self._tunesMTD == 'pynaff':
                 self._oldTunesMTD = 'pynaff'
-                self._tunes_n    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.PyNAFF_tune(_part['x_n']),'Qy':footp.PyNAFF_tune(_part['y_n'])}))
+                self._tunes_n    = self.df_n.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.PyNAFF_tune(_part['x_n']),'Qy':footp.PyNAFF_tune(_part['y_n'])}))
             if self._tunesMTD == 'fft':
                 self._oldTunesMTD = 'fft'
-                self._tunes_n    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.FFT_tune(_part['x_n']),'Qy':footp.FFT_tune(_part['y_n'])}))
+                self._tunes_n    = self.df_n.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.FFT_tune(_part['x_n']),'Qy':footp.FFT_tune(_part['y_n'])}))
             if self._tunesMTD == 'nafflib':
                 self._oldTunesMTD = 'nafflib'
-                self._tunes_n    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.NAFFlib_tune(_part['x_n']),'Qy':footp.NAFFlib_tune(_part['y_n'])}))
+                self._tunes_n    = self.df_n.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.NAFFlib_tune(_part['x_n']),'Qy':footp.NAFFlib_tune(_part['y_n'])}))
         
         return self._tunes_n
 

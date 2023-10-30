@@ -24,6 +24,7 @@ import Presets as bkpresets
 # BBStudies
 import sys
 sys.path.append('/Users/pbelanger/ABPLocal/BBStudies')
+sys.path.append('../../../../')
 import BBStudies.Tracking.XsuitePlus as xPlus
 import BBStudies.Tracking.InteractionPoint as inp
 import BBStudies.Physics.Detuning as tune
@@ -43,7 +44,8 @@ _default_fig_pad    = 100
 
 # Importing Collider and Twiss
 #-------------------------------------
-collider = xt.Multiline.from_json('../001_configure_collider/zfruits/collider_001.json')
+# collider = xt.Multiline.from_json('../001_configure_collider/zfruits/collider_001.json')
+collider = xt.Multiline.from_json('../001_configure_collider/zfruits/collider_001_BUNCH202.json')
 twiss = {}
 twiss['lhcb1'] = collider['lhcb1'].twiss().to_pandas()
 twiss['lhcb2'] = collider['lhcb2'].twiss().reverse().to_pandas()

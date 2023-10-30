@@ -130,15 +130,64 @@ def generate_particles(n_part = 1000,force_n_part = False,line = None,_context =
     return particles,coordinates
 
 
+def generate_realistic_particles(n_part = 1000,r_sig_max = 3,line = None,_context = None,at_element = None,nemitt_x = None,nemitt_y = None,sigma_z = None):
+
+    # Fixing random seed
+    np.random.seed(0)
 
 
-def particle_dist_and_track():
+    # Horizontal plane: generate gaussian distribution in normalized coordinates, 2 orders of magnitude more to filter down
+    # x_in_sigmas, px_in_sigmas = xp.generate_2D_gaussian(n_part*10000)
+    # y_in_sigmas, py_in_sigmas = xp.generate_2D_gaussian(n_part*10000)
+
+    # filtered_x = ((x_in_sigmas**2 + px_in_sigmas**2) > r_sig_max**2)
+    # filtered_y = ((y_in_sigmas**2 + py_in_sigmas**2) > r_sig_max**2)
+
+    # filtered = filtered_x & filtered_y
+
+    x_in_sigmas, px_in_sigmas = xp.generate_2D_gaussian(n_part*100)
+    y_in_sigmas, py_in_sigmas = xp.generate_2D_gaussian(n_part*100)
+
+    filtered_x = ((x_in_sigmas**2 + px_in_sigmas**2) > r_sig_max**2)
+    filtered_y = ((y_in_sigmas**2 + py_in_sigmas**2) > r_sig_max**2)
+
+    filtered = filtered_x | filtered_y
+
+    x_in_sigmas  = x_in_sigmas[filtered]
+    px_in_sigmas = px_in_sigmas[filtered]
+    y_in_sigmas  = y_in_sigmas[filtered]
+    py_in_sigmas = py_in_sigmas[filtered]
+
+    # Longitudinal plane: generate gaussian distribution matched to bucket 
+    zeta, delta, matcher = xp.generate_longitudinal_coordinates(num_particles=sum(filtered), distribution='gaussian',sigma_z=sigma_z, line=line,return_matcher=True)
+    nemitt_zeta = matcher._compute_emittance(matcher.rfbucket,matcher.psi)
+
+
+    if line is not None:
+        particles = xp.build_particles( line    = line,
+                                        x_norm  = x_in_sigmas[:n_part],
+                                        px_norm = px_in_sigmas[:n_part],
+                                        y_norm  = y_in_sigmas[:n_part],
+                                        py_norm = py_in_sigmas[:n_part],
+                                        zeta    = zeta[:n_part],
+                                        delta   = delta[:n_part],
+                                        nemitt_x   = nemitt_x, nemitt_y=nemitt_y,
+                                        at_element = at_element,
+                                        _context   = _context)
+    else:
+        particles = None
+
+    return particles,nemitt_zeta
+
+
+
+def particle_dist_and_track(config = None,config_path = 'config.yaml'):
 
     # Loading setup
     #----------------------------------
     # Loading config
-    config = read_configuration('config.yaml')
-    assert config['tracking']['partition_turns'] != config['tracking']['process_data'] , 'Cannot partition turns and process data at the same time'
+    if config is None:
+        config = read_configuration(config_path)
 
     # Loading collider
     print('LOADING COLLIDER')
@@ -163,17 +212,29 @@ def particle_dist_and_track():
     # Extracting emittance from previous config
     config_bb    = read_configuration('../001_configure_collider/config.yaml')
     beam = sequence[-2:]
-    bunch_number = config_bb['config_collider']['config_beambeam']['mask_with_filling_pattern'][f'i_bunch_{beam}'] 
+    
     nemitt_x,nemitt_y = (config_bb['config_collider']['config_beambeam'][f'nemitt_{plane}'] for plane in ['x','y'])
+    sigma_z           = config_bb['config_collider']['config_beambeam'][f'sigma_z']
+    nemitt_zeta       = 1 # will be computed from matching in generate_particle()
     #-----------------------
     print('GENERATING PARTICLES')
-    particles,coordinates = generate_particles( n_part      = n_parts,
-                                                force_n_part= False,
-                                                nemitt_x    = nemitt_x,
-                                                nemitt_y    = nemitt_y,
-                                                line        = line,
-                                                at_element  = monitor_at,
-                                                 _context   = context)
+    # particles,coordinates = generate_particles( n_part      = n_parts,
+    #                                             force_n_part= False,
+    #                                             nemitt_x    = nemitt_x,
+    #                                             nemitt_y    = nemitt_y,
+    #                                             line        = line,
+    #                                             at_element  = monitor_at,
+    #                                              _context   = context)
+
+    particles,nemitt_zeta = generate_realistic_particles(   n_part      = n_parts,
+                                                            r_sig_max   = 3,
+                                                            nemitt_x    = nemitt_x,
+                                                            nemitt_y    = nemitt_y,
+                                                            sigma_z     = sigma_z,
+                                                            line        = line,
+                                                            at_element  = monitor_at,
+                                                            _context    = context)
+
     n_parts  = len(particles.particle_id)
     #----------------------------------
 
@@ -182,10 +243,10 @@ def particle_dist_and_track():
     
     # Finding number of chunks:
     #==============================
-    if config['tracking']['partition_turns']:
+    if config['tracking']['partition_path'] is not None:
         n_chunks   = config['tracking']['partition_n_chunks']
         main_chunk = None
-    elif config['tracking']['process_data']:
+    elif config['tracking']['process_data_path'] is not None:
         n_chunks   = config['tracking']['process_n_chunks']
         main_chunk = config['tracking']['process_turn_chunk']
     else:
@@ -211,7 +272,7 @@ def particle_dist_and_track():
     # Creating data buffer if needed
     #----------------------------------
     data_buffer = None
-    if config['tracking']['process_data']:
+    if config['tracking']['process_data_path'] is not None:
         data_buffer = xPlus.Data_Buffer()
     #----------------------------------
 
@@ -219,7 +280,7 @@ def particle_dist_and_track():
     # Tracking
     #----------------------------------
     print('START TRACKING...')
-    parquet_path = config['tracking']['parquet_path']
+    
     ID_length    = len(str(len(chunks)))
 
     PBar = pbar.ProgressBar(message='___  Tracking  ___',color='blue',n_steps=len(chunks),max_visible=3)
@@ -249,7 +310,8 @@ def particle_dist_and_track():
                                             monitor_at= monitor_at,
                                             nemitt_x  = nemitt_x,
                                             nemitt_y  = nemitt_y,
-                                            nemitt_zeta = 1,
+                                            nemitt_zeta = nemitt_zeta,
+                                            sigma_z     = sigma_z,
                                             Pbar        = PBar,
                                             progress_divide = 100)
         #--------------------------------------------
@@ -257,26 +319,25 @@ def particle_dist_and_track():
 
         # Data Buffer Computation
         #---------------
-        if config['tracking']['process_data']:
+        if config['tracking']['process_data_path'] is not None:
             data_buffer.process(monitor=main_monitor)
         #---------------
 
         # Saving Chunk if needed
         #--------------------------
-        if config['tracking']['partition_turns']:
-            # print(f'SAVING TO PARQUET... -> {parquet_path}')
-            tracked.to_parquet(parquet_path,partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length))
+        if config['tracking']['partition_path'] is not None:
+            tracked.to_parquet(config['tracking']['partition_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length))
         #--------------------------
 
     
     # Saving data buffer if needed
     #--------------------------
-    if config['tracking']['process_data']:
+    if config['tracking']['process_data_path'] is not None:
         tracked.exec_time    = PBar.main_task.finished_time
         tracked.parquet_data = '_data'
         tracked._data        = data_buffer.to_pandas()
-
-        tracked.to_parquet(parquet_path,partition_name='DATA',partition_ID='0001')
+        bunch_number         = str(config['tracking']['bunch_number']).zfill(4)
+        tracked.to_parquet(config['tracking']['process_data_path'],partition_name='BUNCH',partition_ID=bunch_number)
 
 
 
@@ -288,6 +349,21 @@ def particle_dist_and_track():
 # --- Script for execution
 # ==================================================================================================
 
-if __name__ == "__main__":
-    particles,tracked = particle_dist_and_track()
+# if __name__ == "__main__":
+#     particles,tracked = particle_dist_and_track()
 
+
+# To call the script directly
+if __name__ == '__main__':
+    import argparse
+    # Adding command line parser
+    aparser = argparse.ArgumentParser()
+    aparser.add_argument("-c", "--config",      help = "Config file"  ,default = 'config.yaml')
+    args = aparser.parse_args()
+    
+    
+    assert Path(args.config).exists(), 'Invalid config path'
+    
+    # print(args.config)
+    particles,tracked = particle_dist_and_track(config_path=args.config)
+    #===========================

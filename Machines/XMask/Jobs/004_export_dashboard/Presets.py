@@ -23,6 +23,7 @@ import bokeh_tools as bktools
 # BBStudies
 import sys
 sys.path.append('/Users/pbelanger/ABPLocal/BBStudies')
+sys.path.append('../../../../')
 import BBStudies.Tracking.XsuitePlus as xPlus
 import BBStudies.Tracking.InteractionPoint as inp
 import BBStudies.Physics.Detuning as tune

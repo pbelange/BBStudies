@@ -1,4 +1,5 @@
 # Configuration of the collimators
+# ORDER: V - H - S
 collimators:
   # Beam 1
   tcp.d6l7.b1:

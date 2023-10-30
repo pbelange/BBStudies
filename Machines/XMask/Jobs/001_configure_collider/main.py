@@ -374,7 +374,8 @@ def record_final_luminosity(collider, config_bb, l_n_collisions, crab):
 # ==================================================================================================
 # --- Main function for collider configuration
 # ==================================================================================================
-def configure_collider( config_path     = "config.yaml",
+def configure_collider( config          = None,
+                        config_path     = "config.yaml",
                         config_mad_path = "../000_build_collider_from_mad/config.yaml",
                         skip_beam_beam  = False):
     
@@ -387,7 +388,11 @@ def configure_collider( config_path     = "config.yaml",
     generate_configuration_correction_files()
 
     # Get configurations
-    config, config_mad = read_configuration(config_path=config_path,config_mad_path=config_mad_path)
+    _config, config_mad = read_configuration(config_path=config_path,config_mad_path=config_mad_path)
+    if config is not None:
+        pass
+    else:
+        config = _config
 
     save_collider = config["dump_collider"]
     save_config   = config["dump_config_in_collider"]
@@ -460,8 +465,9 @@ def configure_collider( config_path     = "config.yaml",
 
     if not skip_beam_beam:
         # Return twiss and survey before beam-beam if requested
-        print("Saving collider before beam-beam configuration")
-        collider.to_json(str(collider_out_path.with_stem(collider_out_path.stem + '_bb_off')))
+        if config["dump_bb_off_collider"]:
+            print("Saving collider before beam-beam configuration")
+            collider.to_json(str(collider_out_path.with_stem(collider_out_path.stem + '_bb_off')))
 
         # Configure beam-beam
         collider = configure_beam_beam(collider, config_bb)
@@ -516,6 +522,7 @@ def configure_collider( config_path     = "config.yaml",
         pass
 
     print('Job Finished!')
+    return collider
 
 
 
@@ -528,4 +535,4 @@ def configure_collider( config_path     = "config.yaml",
 # ==================================================================================================
 
 if __name__ == "__main__":
-    configure_collider()
+    collider = configure_collider()
