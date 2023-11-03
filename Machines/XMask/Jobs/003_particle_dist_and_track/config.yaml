@@ -1,33 +1,32 @@
 #======================================================
 #-- Tracking configuration
 #======================================================
-
+# Estimate file size -> 1 GB per 1000 turns per 20k particles
 tracking:
 
-  user_context  : GPU
-  device_id     : 2
+  user_context  : CPU
+  device_id     : 
 
+  # collider_path : ../001_configure_collider/zfruits/collider_BUNCH_0224.json
+  # collider_path : ../001_configure_collider/zfruits/collider_PROBLEM.json
   collider_path : ../001_configure_collider/zfruits/collider_001.json
-
   sequence     : lhcb1
   monitor_at   : 'TCP_H'    # shortcuts stored below
-  bunch_number : 0
+  bunch_number : 224
 
-  n_parts : 20e3
+  
   
 
   #=========================================
-  
-  n_turns : 22490
+  n_parts     : 2000
+  n_turns     : 6000
 
-  # Estimate file size -> 1 GB per 1000 turns per 20k particles
+  n_chunks    : 
+  chunk_size  : 1000
+
   partition_path     : zfruits/BBB_Signature/FULL
-  partition_n_chunks : 50
-  
-  # Data processing
   process_data_path  : zfruits/BBB_Signature/DATA
-  process_turn_chunk : null
-  process_n_chunks   : 50
+  checkpoint_path    : zfruits/BBB_Signature/CHECKPOINTS
   #=========================================
 
 

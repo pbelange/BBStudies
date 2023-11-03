@@ -6,7 +6,7 @@ config_simulation:
   collider_file: ../000_build_collider_from_mad/zfruits/collider_000.json
   
   # Output file
-  collider_file_out: zfruits/collider_001.json
+  collider_file_out: zfruits/collider_BUNCHED/collider_BUNCH_0202.json
 
 # Save collider or not
 dump_collider: true
@@ -118,8 +118,8 @@ config_collider:
     nemitt_y: 1.8e-6
     mask_with_filling_pattern:
       pattern_fname: ../../../FillingSchemes/specific_MD8043.json
-      i_bunch_b1: 224 # If not specified, the bunch with the worst schedule is chosen
-      i_bunch_b2: 224 # Same. A value for i_bunch_b1 and i_bunch_b2 must be specified if pattern_fname is specified
+      i_bunch_b1: 202 # If not specified, the bunch with the worst schedule is chosen
+      i_bunch_b2: 202 # Same. A value for i_bunch_b1 and i_bunch_b2 must be specified if pattern_fname is specified
 
 
 

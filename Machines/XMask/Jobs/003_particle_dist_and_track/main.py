@@ -137,21 +137,21 @@ def generate_realistic_particles(n_part = 1000,r_sig_max = 3,line = None,_contex
 
 
     # Horizontal plane: generate gaussian distribution in normalized coordinates, 2 orders of magnitude more to filter down
-    # x_in_sigmas, px_in_sigmas = xp.generate_2D_gaussian(n_part*10000)
-    # y_in_sigmas, py_in_sigmas = xp.generate_2D_gaussian(n_part*10000)
-
-    # filtered_x = ((x_in_sigmas**2 + px_in_sigmas**2) > r_sig_max**2)
-    # filtered_y = ((y_in_sigmas**2 + py_in_sigmas**2) > r_sig_max**2)
-
-    # filtered = filtered_x & filtered_y
-
-    x_in_sigmas, px_in_sigmas = xp.generate_2D_gaussian(n_part*100)
-    y_in_sigmas, py_in_sigmas = xp.generate_2D_gaussian(n_part*100)
+    x_in_sigmas, px_in_sigmas = xp.generate_2D_gaussian(n_part*10000)
+    y_in_sigmas, py_in_sigmas = xp.generate_2D_gaussian(n_part*10000)
 
     filtered_x = ((x_in_sigmas**2 + px_in_sigmas**2) > r_sig_max**2)
     filtered_y = ((y_in_sigmas**2 + py_in_sigmas**2) > r_sig_max**2)
 
-    filtered = filtered_x | filtered_y
+    filtered = filtered_x & filtered_y
+
+    # x_in_sigmas, px_in_sigmas = xp.generate_2D_gaussian(n_part*100)
+    # y_in_sigmas, py_in_sigmas = xp.generate_2D_gaussian(n_part*100)
+
+    # filtered_x = ((x_in_sigmas**2 + px_in_sigmas**2) > r_sig_max**2)
+    # filtered_y = ((y_in_sigmas**2 + py_in_sigmas**2) > r_sig_max**2)
+
+    # filtered = filtered_x | filtered_y
 
     x_in_sigmas  = x_in_sigmas[filtered]
     px_in_sigmas = px_in_sigmas[filtered]
@@ -181,21 +181,50 @@ def generate_realistic_particles(n_part = 1000,r_sig_max = 3,line = None,_contex
 
 
 
+def initialize_monitor(context = None,num_particles = 0,start_at_turn=0,nturns = 1):
+        monitor = xt.ParticlesMonitor( _context       = context,
+                                        num_particles = num_particles,
+                                        start_at_turn = start_at_turn, 
+                                        stop_at_turn  = start_at_turn + nturns)
+        return monitor
+
+
+
 def particle_dist_and_track(config = None,config_path = 'config.yaml'):
 
-    # Loading setup
-    #----------------------------------
+
     # Loading config
+    #==============================
     if config is None:
         config = read_configuration(config_path)
+    #==============================
+
+
+    # Preparing output folder
+    #==============================
+    partition_path    = config['tracking']['partition_path']
+    process_data_path = config['tracking']['process_data_path']
+    checkpoint_path   = config['tracking']['checkpoint_path']
+
+    for _path in [partition_path,process_data_path,checkpoint_path]:
+        if _path is not None:
+            for parent in Path(_path+'/_').parents[::-1]:
+                if not parent.exists():
+                    parent.mkdir()    
+    #==============================
+
 
     # Loading collider
+    #==============================
     print('LOADING COLLIDER')
     collider,context = load_collider(   collider_path = config['tracking']['collider_path'],
                                         user_context  = config['tracking']['user_context'],
                                         device_id     = config['tracking']['device_id'])
+    #==============================
+
 
     # Parsing config
+    #==============================
     sequence = config['tracking']['sequence']
     line     = collider[sequence]
     n_parts  = int(config['tracking']['n_parts'])
@@ -204,14 +233,14 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     monitor_at      = config['tracking']['monitor_at']
     if monitor_at in monitor_at_dict.keys():
         monitor_at = monitor_at_dict[monitor_at]
-    #----------------------------------
+    #==============================
 
 
     # Generating particle distribution
-    #----------------------------------
+    #==============================
     # Extracting emittance from previous config
-    config_bb    = read_configuration('../001_configure_collider/config.yaml')
-    beam = sequence[-2:]
+    config_bb = read_configuration('../001_configure_collider/config.yaml')
+    beam      = sequence[-2:]
     
     nemitt_x,nemitt_y = (config_bb['config_collider']['config_beambeam'][f'nemitt_{plane}'] for plane in ['x','y'])
     sigma_z           = config_bb['config_collider']['config_beambeam'][f'sigma_z']
@@ -236,49 +265,36 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
                                                             _context    = context)
 
     n_parts  = len(particles.particle_id)
-    #----------------------------------
+    #==============================
 
 
 
     
     # Finding number of chunks:
     #==============================
-    if config['tracking']['partition_path'] is not None:
-        n_chunks   = config['tracking']['partition_n_chunks']
-        main_chunk = None
-    elif config['tracking']['process_data_path'] is not None:
-        n_chunks   = config['tracking']['process_n_chunks']
-        main_chunk = config['tracking']['process_turn_chunk']
-    else:
-        n_chunks   = 1
-        main_chunk = None
+    n_chunks   = config['tracking']['n_chunks']
+    main_chunk = config['tracking']['chunk_size']
+
     chunks   = xPlus.split_in_chunks(n_turns,n_chunks=n_chunks,main_chunk=main_chunk)
     #==============================
 
-    # Preparing output folder
+
+    
+
+    # Creating data buffer and checkpoint if needed
     #==============================
-    if not Path('zfruits').exists():
-        Path('zfruits').mkdir()
-    #==============================
-
-
-    def initialize_monitor(context = None,num_particles = 0,start_at_turn=0,nturns = 1):
-        monitor = xt.ParticlesMonitor( _context       = context,
-                                        num_particles = num_particles,
-                                        start_at_turn = start_at_turn, 
-                                        stop_at_turn  = start_at_turn + nturns)
-        return monitor
-
-    # Creating data buffer if needed
-    #----------------------------------
     data_buffer = None
     if config['tracking']['process_data_path'] is not None:
         data_buffer = xPlus.Data_Buffer()
-    #----------------------------------
+
+    checkpoint_buffer = None
+    if config['tracking']['checkpoint_path'] is not None:
+        checkpoint_buffer = xPlus.Checkpoint_Buffer()
+    #==============================
 
 
     # Tracking
-    #----------------------------------
+    #==============================
     print('START TRACKING...')
     
     ID_length    = len(str(len(chunks)))
@@ -321,6 +337,8 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
         #---------------
         if config['tracking']['process_data_path'] is not None:
             data_buffer.process(monitor=main_monitor)
+        if config['tracking']['checkpoint_path'] is not None:
+            checkpoint_buffer.process(monitor=main_monitor)
         #---------------
 
         # Saving Chunk if needed
@@ -339,6 +357,13 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
         bunch_number         = str(config['tracking']['bunch_number']).zfill(4)
         tracked.to_parquet(config['tracking']['process_data_path'],partition_name='BUNCH',partition_ID=bunch_number)
 
+    if config['tracking']['checkpoint_path'] is not None:
+        tracked.exec_time    = PBar.main_task.finished_time
+        tracked.parquet_data = '_checkpoint'
+        tracked._checkpoint  = checkpoint_buffer.to_pandas()
+        bunch_number         = str(config['tracking']['bunch_number']).zfill(4)
+        tracked.to_parquet(config['tracking']['checkpoint_path'],partition_name='BUNCH',partition_ID=bunch_number)
+    #--------------------------
 
 
 
@@ -348,12 +373,6 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
 # ==================================================================================================
 # --- Script for execution
 # ==================================================================================================
-
-# if __name__ == "__main__":
-#     particles,tracked = particle_dist_and_track()
-
-
-# To call the script directly
 if __name__ == '__main__':
     import argparse
     # Adding command line parser
@@ -364,6 +383,5 @@ if __name__ == '__main__':
     
     assert Path(args.config).exists(), 'Invalid config path'
     
-    # print(args.config)
     particles,tracked = particle_dist_and_track(config_path=args.config)
     #===========================

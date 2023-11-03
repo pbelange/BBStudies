@@ -35,16 +35,27 @@ def PyNAFF_tune(x,nterms=1,skipTurns=0):
     return Qx
 
 
-def NAFFlib_tune(x,nfreqs = 1,Hann_order=2):
+def NAFFlib_tune(x,nfreqs = 1,Hann_order=2,multiparticles = False):
 
-    x        = np.array(x)
-    Q,Ap,An  = NAFFlib.get_tunes(x-np.mean(x), nfreqs, Hann_order)
+    
 
-    # np.abs(Ap[i]) is the amplitude
-    if nfreqs ==1:
-        return Q[0]
-    else:
+    # No need to remove average, already done.
+    if multiparticles:
+        x = np.array(x)
+        Q = NAFFlib.multiparticle_tunes(x, order=Hann_order)
+
+        Q[Q<0] = np.nan
         return Q
+
+    else:
+        x        = np.array(x)
+        Q,Ap,An  = NAFFlib.get_tunes(x-np.mean(x), nfreqs, Hann_order)
+
+        # np.abs(Ap[i]) is the amplitude
+        if nfreqs ==1:
+            return Q[0]
+        else:
+            return Q
 
 
 

@@ -272,48 +272,34 @@ def import_parquet(data_path,partition_name=None,partition_ID=None,variables = N
 #     x_max = np.max(self.monitor.x,axis=1)
 
 
-
-
-# Data_Buffer:
 #===================================================
-class Data_Buffer():
+class Checkpoint_Buffer():
     def __init__(self,monitor=None):
         self.monitor = monitor
         self.call_ID = None
         
-        
         self.data = {}
         self.data['Chunk ID'] = []
-        self.data['n_parts'] = []
+        self.data['turn']     = []
         self.data['particle'] = []
         self.data['state']    = []
-        self.data['start_at_turn'] = []
-        self.data['stop_at_turn']  = []
-        self.data['x_min'] = []
-        self.data['x_max'] = []
-        self.data['y_min'] = []
-        self.data['y_max'] = []
-        self.data['skew_min'] = []
-        self.data['skew_max'] = []
-        self.data['zeta_min'] = []
-        self.data['zeta_max'] = []
-        self.data['px_min'] = []
-        self.data['px_max'] = []
-        self.data['py_min'] = []
-        self.data['py_max'] = []
-        self.data['pzeta_min'] = []
-        self.data['pzeta_max'] = []
-
+        self.data['x']        = []
+        self.data['px']       = []
+        self.data['y']        = []
+        self.data['py']       = []
+        self.data['zeta']     = []
+        self.data['pzeta']    = []
+        
+        self.particle_id = None
 
     def to_pandas(self):
-        dct = {}
+        dct    = {}
+        nparts = len(self.particle_id)
+
         for key,value in self.data.items():
-            if key == 'n_parts':
-                continue
-            
-            # print(key,len(np.shape(value)))
+
             if len(np.shape(value)) == 1:
-                dct[key] = np.repeat(value,self.data['n_parts'])
+                dct[key] = np.repeat(value,nparts)
             elif len(np.shape(value)) == 2:
                 dct[key] = np.hstack(value)
 
@@ -330,48 +316,138 @@ class Data_Buffer():
         
         if monitor is not None:
             self.monitor = monitor
+
+        if self.particle_id is None:
+            self.particle_id = np.arange(self.monitor.part_id_start,self.monitor.part_id_end)
         #-------------------------
 
         start_at_turn = self.monitor.start_at_turn
-        stop_at_turn  = self.monitor.stop_at_turn
-        n_parts       = self.monitor.part_id_end - self.monitor.part_id_start
-
-        # Note: 2D array are ordered following [particles,turns]
-        x_max  = np.max(self.monitor.x,axis=1)
-        px_max = np.max(self.monitor.px,axis=1)
-        y_max  = np.max(self.monitor.y,axis=1)
-        py_max = np.max(self.monitor.py,axis=1)
-        zeta_max  = np.max(self.monitor.zeta,axis=1)
 
         # ptau/beta0 -> ignoring division by zeros
         pzeta = np.divide(self.monitor.ptau,self.monitor.beta0, np.zeros_like(self.monitor.ptau) + np.nan,where=self.monitor.beta0!=0)
-        pzeta_max = np.max(pzeta,axis=1)
 
-        # same for min
-        x_min  = np.min(self.monitor.x,axis=1)
-        px_min = np.min(self.monitor.px,axis=1)
-        y_min  = np.min(self.monitor.y,axis=1)
-        py_min = np.min(self.monitor.py,axis=1)
-        zeta_min  = np.min(self.monitor.zeta,axis=1)
-        pzeta_min = np.min(pzeta,axis=1)
+        # Appending to data
+        #-------------------------
+        self.data['Chunk ID'].append(self.call_ID)
+        self.data['turn'].append(start_at_turn)
+        self.data['particle'].append(self.particle_id)
+        self.data['state'].append(self.monitor.state[:,0])
+        self.data['x'].append(self.monitor.x[:,0])
+        self.data['px'].append(self.monitor.px[:,0])
+        self.data['y'].append(self.monitor.y[:,0])
+        self.data['py'].append(self.monitor.py[:,0])
+        self.data['zeta'].append(self.monitor.zeta[:,0])
+        self.data['pzeta'].append(pzeta[:,0])
+        #-------------------------
 
-        # Shew coordinates
+# Data_Buffer:
+#===================================================
+class Data_Buffer():
+    def __init__(self,monitor=None):
+        self.monitor = monitor
+        self.call_ID = None
+        
+        
+        self.data = {}
+        self.data['Chunk ID'] = []
+        self.data['particle'] = []
+        self.data['state']    = []
+        self.data['start_at_turn'] = []
+        self.data['stop_at_turn']  = []
+        self.data['x_min'] = []
+        self.data['x_max'] = []
+        self.data['y_min'] = []
+        self.data['y_max'] = []
+        self.data['skew_min'] = []
+        self.data['skew_max'] = []
+        self.data['px_min'] = []
+        self.data['px_max'] = []
+        self.data['py_min'] = []
+        self.data['py_max'] = []
+        self.data['Qx'] = []
+        self.data['Qy'] = []
+        self.data['Qzeta'] = []
+
+
+        self.particle_id = None
+
+
+    def to_pandas(self):
+        dct    = {}
+        nparts = len(self.particle_id)
+
+        for key,value in self.data.items():
+
+            if len(np.shape(value)) == 1:
+                dct[key] = np.repeat(value,nparts)
+            elif len(np.shape(value)) == 2:
+                dct[key] = np.hstack(value)
+
+        return pd.DataFrame(dct)
+
+    def process(self,monitor = None):
+
+        # Initialize
+        #-------------------------
+        if self.call_ID is None:
+            self.call_ID = 0
+        else:
+            self.call_ID += 1
+        
+        if monitor is not None:
+            self.monitor = monitor
+
+        if self.particle_id is None:
+            self.particle_id = np.arange(self.monitor.part_id_start,self.monitor.part_id_end)
+        #-------------------------
+
+
+        # Extracting data
+        #-------------------------
+        start_at_turn = self.monitor.start_at_turn
+        stop_at_turn  = self.monitor.stop_at_turn
+
+        x    = self.monitor.x
+        y    = self.monitor.y
+        zeta = self.monitor.zeta
+         
+        # Rotating for skew collimator
+        #-------------------------
         skew_angle   = 127.5 + 90 #skew coll angle, +90 because 0 corresponds to a horizontal collimator_n/vertical walls
         theta_unskew = -np.deg2rad(skew_angle-90)
-        x_unskew = self.monitor.x*np.cos(theta_unskew) - self.monitor.y*np.sin(theta_unskew)
-        # No need for this one
-        # y_unskew = self.monitor.x*np.sin(theta_unskew) + self.monitor.y*np.cos(theta_unskew)
+        x_skew       = x*np.cos(theta_unskew) - y*np.sin(theta_unskew)
 
-        skew_min = np.min(x_unskew,axis=1)
-        skew_max = np.max(x_unskew,axis=1)
+        # Tunes
+        #-------------------------
+        Qx    = footp.NAFFlib_tune(x   ,Hann_order=2,multiparticles = True)
+        Qy    = footp.NAFFlib_tune(y   ,Hann_order=2,multiparticles = True)
+        Qzeta = footp.NAFFlib_tune(zeta,Hann_order=2,multiparticles = True) 
 
+        # Extracting max and min || Note: 2D array are ordered following [particles,turns]
+        #-------------------------
+        # X -------------
+        idx_list = np.arange(len(self.particle_id))
+        idx_max  = np.argmax(x,axis=1)
+        idx_min  = np.argmin(x,axis=1)
+        x_max,px_max = x[idx_list,idx_max],self.monitor.px[idx_list,idx_max]
+        x_min,px_min = x[idx_list,idx_min],self.monitor.px[idx_list,idx_min]
+
+        # Y -------------
+        idx_max = np.argmax(y,axis=1)
+        idx_min = np.argmin(y,axis=1)
+        y_max,py_max = y[idx_list,idx_max],self.monitor.py[idx_list,idx_max]
+        y_min,py_min = y[idx_list,idx_min],self.monitor.py[idx_list,idx_min]
+
+
+        # Skew ----------
+        skew_max = np.min(x_skew,axis=1)
+        skew_min = np.max(x_skew,axis=1)
 
 
         # Appending to data
         #-------------------------
         self.data['Chunk ID'].append(self.call_ID)
-        self.data['n_parts'].append(n_parts)
-        self.data['particle'].append(self.monitor.particle_id[:,-1])
+        self.data['particle'].append(self.particle_id)
         self.data['state'].append(self.monitor.state[:,-1])
         self.data['start_at_turn'].append(start_at_turn)
         self.data['stop_at_turn'].append(stop_at_turn)
@@ -381,14 +457,13 @@ class Data_Buffer():
         self.data['y_max'].append(y_max)
         self.data['skew_min'].append(skew_min)
         self.data['skew_max'].append(skew_max)
-        self.data['zeta_min'].append(zeta_min)
-        self.data['zeta_max'].append(zeta_max)
         self.data['px_min'].append(px_min)
         self.data['px_max'].append(px_max)
         self.data['py_min'].append(py_min)
         self.data['py_max'].append(py_max)
-        self.data['pzeta_min'].append(pzeta_min)
-        self.data['pzeta_max'].append(pzeta_max)
+        self.data['Qx'].append(Qx)
+        self.data['Qy'].append(Qy)
+        self.data['Qzeta'].append(Qzeta)
         #-------------------------
 
 
@@ -410,14 +485,6 @@ def split_in_chunks(turns,n_chunks = None,main_chunk = None):
     return chunks
 
 
-
-
-# def split_by_chunks(turns,n_chunks):
-#     main_chunk = turns//n_chunks
-#     chunks     = n_chunks*[main_chunk]+ [np.mod(turns,n_chunks)]
-#     if chunks[-1]==0:
-#         chunks = chunks[:-1]
-#     return chunks
 
 # NEW Tracking class:
 #===================================================
@@ -465,6 +532,7 @@ class Tracking_Interface():
         self._coord_sig= None
 
         self._data = None
+        self._checkpoint = None
         self.parquet_data  = '_df'
 
         if extract_columns is None:
@@ -494,8 +562,6 @@ class Tracking_Interface():
             self.PBar     = None
             self.progress = False
         self.exec_time = None
-        # self._plive    = None
-        # self._pstatus  = None
         #-------------------------
 
 
@@ -508,8 +574,6 @@ class Tracking_Interface():
         if self.monitor_at is not None:
             if line.element_names[0] != self.monitor_at:
                 line.cycle(name_first_element=self.monitor_at, inplace=True)
-        # else:
-            # _line = line
         #--------
         
         if line is not None:
@@ -617,6 +681,12 @@ class Tracking_Interface():
             self.start_at_turn = self._data.start_at_turn.min()
             self.stop_at_turn  = self._data.stop_at_turn.max()
             self.n_turns       = self.stop_at_turn - self.start_at_turn
+
+        elif (self.parquet_data == '_checkpoint'):
+            self._checkpoint = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn)
+            self.start_at_turn = self._checkpoint.turn.min()
+            self.stop_at_turn  = self._checkpoint.turn.max()
+            self.n_turns       = self.stop_at_turn - self.start_at_turn
         #-------------------------
 
         return self
@@ -674,6 +744,13 @@ class Tracking_Interface():
                                                     existing_data_behavior = 'delete_matching',
                                                     basename_template      = 'processed_data_{i}.parquet')
             self._data.drop(columns=[self.partition_name],inplace=True)
+        elif self.parquet_data == '_checkpoint':
+            _ = self.checkpoint
+            self._checkpoint.insert(0,self.partition_name,self.partition_ID)
+            self._checkpoint.to_parquet(filename, partition_cols         = [self.partition_name],
+                                                    existing_data_behavior = 'delete_matching',
+                                                    basename_template      = 'checkpoint_{i}.parquet')
+            self._checkpoint.drop(columns=[self.partition_name],inplace=True)
         #---------------------------------------
 
         # Export metadata as well
@@ -688,30 +765,58 @@ class Tracking_Interface():
         if self.W_matrix is not None:         
             return self.W_matrix[0,0]*np.sqrt(self.nemitt_x/self.particle_on_co.gamma0)
         return None
+    
+    @property
+    def betx(self):
+        if self.W_matrix is not None:         
+            return (self.W_matrix[0,0])**2
+        return None
 
     @property
     def sig_y(self):
         if self.W_matrix is not None:         
             return self.W_matrix[2,2]*np.sqrt(self.nemitt_y/self.particle_on_co.gamma0)
         return None
+    
+    @property
+    def bety(self):
+        if self.W_matrix is not None:         
+            return (self.W_matrix[2,2])**2
+        return None
 
 
     @property
     def coord(self):
+        keep_col = ['particle','state','x','px','y','py','zeta','pzeta']
         if self._coord is None:
-            self._coord = self.df.groupby('turn').get_group(0).drop(columns=['turn'])
+            if self._checkpoint is not None:
+                self._coord = self.checkpoint.groupby('turn').get_group(0).reset_index(drop=True)
+            else:
+                self._coord = self.df.groupby('turn').get_group(0).reset_index(drop=True)
+            self._coord = self._coord[keep_col]
         return self._coord
     
     @property
     def coord_n(self):
         if self._coord_n is None:
-            self._coord_n = self.df_n.groupby('turn').get_group(0).drop(columns=['turn'])
+
+            coord_n = W_phys2norm(**self.coord[['x','px','y','py','zeta','pzeta']],W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,to_pd=True)
+            self._coord_n = pd.concat([self.coord[['particle','state']],coord_n],axis=1)
+
         return self._coord_n
     
     @property
     def coord_sig(self):
         if self._coord_sig is None:
-            self._coord_sig = self.df_sig.groupby('turn').get_group(0).drop(columns=['turn'])
+            # Asserting the existence of the emittances
+            if (self.nemitt_x is None) or (self.nemitt_x is None) or (self.nemitt_zeta is None):
+                print('Need to specifiy emittances, self.nemitt_x,self.nemitt_y,self.nemitt_zeta')
+                return None
+            
+            # Computing in sigma coordinates
+            coord_sig = norm2sigma(**self.coord_n[['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co,to_pd=True)
+            self._coord_sig = pd.concat([self.coord_n[['particle','state']],coord_sig],axis=1)
+        
         return self._coord_sig
 
 
@@ -719,6 +824,10 @@ class Tracking_Interface():
     def data(self):
         # if self._data is None:
         return self._data
+    
+    @property
+    def checkpoint(self):
+        return self._checkpoint
 
 
     @property
@@ -869,45 +978,6 @@ class Tracking_Interface():
             # Saving the last task as exec time (either subtask or main task)
             self.exec_time = self.PBar.Progress.tasks[-1].finished_time
 
-
-
-    # # Progress bar methods
-    # #=============================================================================
-    # def startProgressBar(self,):
-    #     self._plive = Progress("{task.description}",
-    #                             TextColumn("[progress.remaining] ["),TimeRemainingColumn(),TextColumn("[progress.remaining]remaining ]   "),
-    #                             SpinnerColumn(),
-    #                             BarColumn(bar_width=40),
-    #                             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-    #                             TimeElapsedColumn())
-
-    #     self._plive.start()
-    #     self._plive.live._disable_redirect_io()
-
-    #     self._pstatus = self._plive.add_task("[blue]Tracking\n", total=self.n_turns)
-    
-    # def updateProgressBar(self,chunk = 1):
-    #     self._plive.update(self._pstatus, advance=chunk,update=True)
-
-
-    # def startSpinner(self,):
-    #     self._plive = Progress("{task.description}",
-    #                             SpinnerColumn('aesthetic',),
-    #                             TextColumn("[progress.elapsed] ["),TimeElapsedColumn (),TextColumn("[progress.elapsed]elapsed ]   "))
-
-    #     self._plive.start()
-    #     self._plive.live._disable_redirect_io()
-
-    #     self._pstatus = self._plive.add_task("[blue]Tracking")
-
-
-    # def closeLiveDisplay(self,):
-    #     self._plive.refresh()
-    #     self._plive.stop()
-    #     self._plive.console.clear_live()
-
-    #     # Saving execution time in seconds
-    #     self.exec_time = self._plive.tasks[0].finished_time
 
     def __repr__(self,):
         rich.inspect(RenderingTracker(self),title='Tracking_Interface', docs=False)
