@@ -17,7 +17,7 @@ config_path = 'config.yaml'
 tmp_config  = 'tmp_config.yaml'
 
 collider_file_template = '../001_configure_collider/zfruits/collider_BUNCHED/collider_BUNCH_{bunch_str}.json'
-partition_path_template = 'zfruits/BBB_Signature/FULL/BUNCH_{bunch_str}'
+partition_path_template = 'zfruits/BBB_Signature_V2/FULL/BUNCH_{bunch_str}'
 
 
 
@@ -25,8 +25,8 @@ bunch_start = 200
 bunch_stop  = 247
 
 for bunch in np.arange(bunch_start,bunch_stop+1):
-    if bunch < 226:
-        continue
+    # if bunch < 226:
+    #     continue
 
     config = main.read_configuration(config_path)
 
