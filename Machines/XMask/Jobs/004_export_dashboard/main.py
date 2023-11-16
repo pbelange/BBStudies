@@ -24,7 +24,7 @@ import Presets as bkpresets
 # BBStudies
 import sys
 sys.path.append('/Users/pbelanger/ABPLocal/BBStudies')
-c
+
 import BBStudies.Tracking.XsuitePlus as xPlus
 import BBStudies.Tracking.InteractionPoint as inp
 import BBStudies.Physics.Detuning as tune

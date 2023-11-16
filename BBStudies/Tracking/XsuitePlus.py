@@ -186,14 +186,14 @@ def W_phys2norm(x,px,y,py,zeta,pzeta,W_matrix,particle_on_co,to_pd = False):
 
 def norm2sigma(x_n,px_n,y_n,py_n,zeta_n,pzeta_n,nemitt_x,nemitt_y,nemitt_zeta,particle_on_co,to_pd = False):
 
-
+    gamma0 = particle_on_co.gamma0[0]
     XX = np.zeros(shape=(6, len(x_n)), dtype=np.float64)
-    XX[0,:] = x_n     / np.sqrt(nemitt_x/particle_on_co.gamma0)
-    XX[1,:] = px_n    / np.sqrt(nemitt_x/particle_on_co.gamma0)
-    XX[2,:] = y_n     / np.sqrt(nemitt_y/particle_on_co.gamma0)
-    XX[3,:] = py_n    / np.sqrt(nemitt_y/particle_on_co.gamma0)
-    XX[4,:] = zeta_n  / np.sqrt(nemitt_zeta/particle_on_co.gamma0)
-    XX[5,:] = pzeta_n / np.sqrt(nemitt_zeta/particle_on_co.gamma0)
+    XX[0,:] = x_n     / np.sqrt(nemitt_x/gamma0)
+    XX[1,:] = px_n    / np.sqrt(nemitt_x/gamma0)
+    XX[2,:] = y_n     / np.sqrt(nemitt_y/gamma0)
+    XX[3,:] = py_n    / np.sqrt(nemitt_y/gamma0)
+    XX[4,:] = zeta_n  / np.sqrt(nemitt_zeta/gamma0)
+    XX[5,:] = pzeta_n / np.sqrt(nemitt_zeta/gamma0)
 
     if to_pd:
         return pd.DataFrame({'x_sig':XX[0,:],'px_sig':XX[1,:],'y_sig':XX[2,:],'py_sig':XX[3,:],'zeta_sig':XX[4,:],'pzeta_sig':XX[5,:]})
@@ -216,7 +216,7 @@ class NpEncoder(json.JSONEncoder):
 
 
 #========================================
-def import_parquet(data_path,partition_name=None,partition_ID=None,variables = None,start_at_turn = None,stop_at_turn = None):
+def import_parquet(data_path,partition_name=None,partition_ID=None,variables = None,start_at_turn = None,stop_at_turn = None,handpick_particles = None):
 
 
 
@@ -235,7 +235,11 @@ def import_parquet(data_path,partition_name=None,partition_ID=None,variables = N
             stop_at_turn = 1e10
         
         filters = [[('turn','>=',start_at_turn),('turn','<=',stop_at_turn)]]
-    # print()
+    
+    if handpick_particles is not None:
+        if filters is None:
+            filters = [[]]
+        filters = [filters[0]+[('particle','==',part)] for part in handpick_particles]
     #-----------------------------
 
     # Importing the data
@@ -440,8 +444,8 @@ class Data_Buffer():
 
 
         # Skew ----------
-        skew_max = np.min(x_skew,axis=1)
-        skew_min = np.max(x_skew,axis=1)
+        skew_max = np.max(x_skew,axis=1)
+        skew_min = np.min(x_skew,axis=1)
 
 
         # Appending to data
@@ -485,6 +489,46 @@ def split_in_chunks(turns,n_chunks = None,main_chunk = None):
     return chunks
 
 
+class coordinate_table():
+    def __init__(self,_df,W_matrix=None,particle_on_co=None,nemit_x=None,nemit_y=None,nemit_zeta=None):
+        self._df     = _df
+        self._df_n   = None
+        self._df_sig = None
+
+        self.W_matrix = W_matrix
+        self.particle_on_co = particle_on_co
+        self.nemitt_x = nemit_x
+        self.nemitt_y = nemit_y
+        self.nemitt_zeta = nemit_zeta
+
+    @property
+    def df(self):
+        return self._df
+
+    @property
+    def df_n(self):
+        if self._df_n is None:
+            coord_n    = W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,to_pd=True)
+            old_cols   = list(self.df.columns.drop(['x','px','y','py','zeta','pzeta']))
+            self._df_n = pd.concat([self.df[old_cols],coord_n],axis=1)
+        return self._df_n
+    
+
+    @property
+    def df_sig(self):
+        if self._df_sig is None:
+            # Asserting the existence of the emittances
+            if (self.nemitt_x is None) or (self.nemitt_x is None) or (self.nemitt_zeta is None):
+                print('Need to specifiy emittances, self.nemitt_x,self.nemitt_y,self.nemitt_zeta')
+                return None
+            
+            # Computing in sigma coordinates
+            coord_sig    = norm2sigma(**self.df_n[['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co,to_pd=True)
+            old_cols     = list(self.df_n.columns.drop(['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']))
+            self._df_sig = pd.concat([self.df_n[old_cols],coord_sig],axis=1)
+        return self._df_sig
+
+
 
 # NEW Tracking class:
 #===================================================
@@ -524,15 +568,11 @@ class Tracking_Interface():
         # Dataframes
         #-------------------------
         self._df       = None
-        self._df_n     = None
-        self._df_sig   = None
-
         self._coord    = None
-        self._coord_n  = None
-        self._coord_sig= None
+        self._checkpoint = None
 
         self._data = None
-        self._checkpoint = None
+        
         self.parquet_data  = '_df'
 
         if extract_columns is None:
@@ -642,7 +682,7 @@ class Tracking_Interface():
     
 
     @classmethod
-    def from_parquet(cls,data_path,partition_name=None,partition_ID=None,variables = None,start_at_turn = None,stop_at_turn = None):
+    def from_parquet(cls,data_path,partition_name=None,partition_ID=None,variables = None,start_at_turn = None,stop_at_turn = None,handpick_particles = None):
         self = cls()
         
         # Extracting metadata
@@ -672,20 +712,22 @@ class Tracking_Interface():
         # Importing main dataframe
         #-------------------------
         if self.parquet_data == '_df':
-            self._df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn)
-            self.start_at_turn = self._df.turn.min()
-            self.stop_at_turn  = self._df.turn.max()
+            self._df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles)
+            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+            self.start_at_turn = self.df.turn.min()
+            self.stop_at_turn  = self.df.turn.max()
             self.n_turns       = self.stop_at_turn - self.start_at_turn
         elif (self.parquet_data == '_data') or (self.parquet_data == '_calculations'):
-            self._data = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn)
+            self._data = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles)
             self.start_at_turn = self._data.start_at_turn.min()
             self.stop_at_turn  = self._data.stop_at_turn.max()
             self.n_turns       = self.stop_at_turn - self.start_at_turn
 
         elif (self.parquet_data == '_checkpoint'):
-            self._checkpoint = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn)
-            self.start_at_turn = self._checkpoint.turn.min()
-            self.stop_at_turn  = self._checkpoint.turn.max()
+            self._checkpoint = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles)
+            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+            self.start_at_turn = self.checkpoint.turn.min()
+            self.stop_at_turn  = self.checkpoint.turn.max()
             self.n_turns       = self.stop_at_turn - self.start_at_turn
         #-------------------------
 
@@ -695,28 +737,29 @@ class Tracking_Interface():
         
     
     def to_pickle(self,filename):
-        self.context      = None
-        self.progress     = None
-        self.monitor      = None
-        self.progress     = None
-        self.PBar     = None
-        # self._plive       = None
-        # self._pstatus     = None
-        self.run_tracking  = None
+        pass
+        # self.context      = None
+        # self.progress     = None
+        # self.monitor      = None
+        # self.progress     = None
+        # self.PBar     = None
+        # # self._plive       = None
+        # # self._pstatus     = None
+        # self.run_tracking  = None
 
-        self._tunes    = None
-        self._tunes_n  = None
+        # self._tunes    = None
+        # self._tunes_n  = None
 
-        self._df       = None
-        self._df_n     = None
-        self._df_sig   = None
+        # self._df       = None
+        # self._df_n     = None
+        # self._df_sig   = None
 
-        self._coord    = None
-        self._coord_n  = None
-        self._coord_sig= None
+        # self._coord    = None
+        # self._coord_n  = None
+        # self._coord_sig= None
 
-        with open(filename, 'wb') as f:
-            pickle.dump(self, f)
+        # with open(filename, 'wb') as f:
+        #     pickle.dump(self, f)
 
 
         
@@ -732,25 +775,25 @@ class Tracking_Interface():
         #---------------------------------------
         if self.parquet_data == '_df':
             _ = self.df
-            self._df.insert(0,self.partition_name,self.partition_ID)
-            self._df.to_parquet(filename,    partition_cols         = [self.partition_name],
+            self.df.insert(0,self.partition_name,self.partition_ID)
+            self.df.to_parquet(filename,    partition_cols         = [self.partition_name],
                                             existing_data_behavior = 'delete_matching',
                                             basename_template      = 'tracking_data_{i}.parquet')
-            self._df.drop(columns=[self.partition_name],inplace=True)
+            self.df.drop(columns=[self.partition_name],inplace=True)
         elif self.parquet_data == '_data':
             _ = self.data
-            self._data.insert(0,self.partition_name,self.partition_ID)
-            self._data.to_parquet(filename, partition_cols         = [self.partition_name],
+            self.data.insert(0,self.partition_name,self.partition_ID)
+            self.data.to_parquet(filename, partition_cols         = [self.partition_name],
                                                     existing_data_behavior = 'delete_matching',
                                                     basename_template      = 'processed_data_{i}.parquet')
-            self._data.drop(columns=[self.partition_name],inplace=True)
+            self.data.drop(columns=[self.partition_name],inplace=True)
         elif self.parquet_data == '_checkpoint':
             _ = self.checkpoint
-            self._checkpoint.insert(0,self.partition_name,self.partition_ID)
-            self._checkpoint.to_parquet(filename, partition_cols         = [self.partition_name],
+            self.checkpoint.insert(0,self.partition_name,self.partition_ID)
+            self.checkpoint.to_parquet(filename, partition_cols         = [self.partition_name],
                                                     existing_data_behavior = 'delete_matching',
                                                     basename_template      = 'checkpoint_{i}.parquet')
-            self._checkpoint.drop(columns=[self.partition_name],inplace=True)
+            self.checkpoint.drop(columns=[self.partition_name],inplace=True)
         #---------------------------------------
 
         # Export metadata as well
@@ -763,7 +806,7 @@ class Tracking_Interface():
     @property
     def sig_x(self):
         if self.W_matrix is not None:         
-            return self.W_matrix[0,0]*np.sqrt(self.nemitt_x/self.particle_on_co.gamma0)
+            return self.W_matrix[0,0]*np.sqrt(self.nemitt_x/self.particle_on_co.gamma0[0])
         return None
     
     @property
@@ -775,7 +818,7 @@ class Tracking_Interface():
     @property
     def sig_y(self):
         if self.W_matrix is not None:         
-            return self.W_matrix[2,2]*np.sqrt(self.nemitt_y/self.particle_on_co.gamma0)
+            return self.W_matrix[2,2]*np.sqrt(self.nemitt_y/self.particle_on_co.gamma0[0])
         return None
     
     @property
@@ -784,6 +827,22 @@ class Tracking_Interface():
             return (self.W_matrix[2,2])**2
         return None
 
+    @property
+    def sig_x_coll(self):
+        _sigx = np.sqrt(self.betx*3.5e-6/self.particle_on_co.gamma0[0])
+        return _sigx
+    
+    @property
+    def sig_y_coll(self):
+        _sigy = np.sqrt(self.bety*3.5e-6/self.particle_on_co.gamma0[0])
+        return _sigy
+    
+    @property
+    def sig_skew_coll(self):
+        # Ellipse in polar: r(alpha) = sqrt((a*cos(alpha))^2 + (b*sin(alpha))^2)
+        _alpha   = np.deg2rad(127.5)
+        _sigskew = np.sqrt((self.sig_x_coll*np.cos(_alpha))**2 + (self.sig_y_coll*np.sin(_alpha))**2)
+        return _sigskew
 
     @property
     def coord(self):
@@ -794,40 +853,34 @@ class Tracking_Interface():
             else:
                 self._coord = self.df.groupby('turn').get_group(0).reset_index(drop=True)
             self._coord = self._coord[keep_col]
-        return self._coord
+            self._coord = coordinate_table(self._coord,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+        return self._coord.df
     
     @property
     def coord_n(self):
-        if self._coord_n is None:
-
-            coord_n = W_phys2norm(**self.coord[['x','px','y','py','zeta','pzeta']],W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,to_pd=True)
-            self._coord_n = pd.concat([self.coord[['particle','state']],coord_n],axis=1)
-
-        return self._coord_n
+        return self._coord.df_n
     
     @property
     def coord_sig(self):
-        if self._coord_sig is None:
-            # Asserting the existence of the emittances
-            if (self.nemitt_x is None) or (self.nemitt_x is None) or (self.nemitt_zeta is None):
-                print('Need to specifiy emittances, self.nemitt_x,self.nemitt_y,self.nemitt_zeta')
-                return None
-            
-            # Computing in sigma coordinates
-            coord_sig = norm2sigma(**self.coord_n[['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co,to_pd=True)
-            self._coord_sig = pd.concat([self.coord_n[['particle','state']],coord_sig],axis=1)
-        
-        return self._coord_sig
+        return self._coord.df_sig
 
 
     @property
     def data(self):
-        # if self._data is None:
         return self._data
     
     @property
     def checkpoint(self):
-        return self._checkpoint
+        return self._checkpoint.df
+    
+    @property
+    def checkpoint_n(self):
+        return self._checkpoint.df_n
+    
+    @property
+    def checkpoint_sig(self):
+        return self._checkpoint.df_sig
+
 
 
     @property
@@ -847,31 +900,17 @@ class Tracking_Interface():
             # # Adding element name
             # if 'at_element' in self.extract_columns:
             #     self._df.loc[:,'at_element'] = self._df.at_element.apply(lambda ee_idx: line.element_names[ee_idx])
-        
-        return self._df
+            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+        return self._df.df
 
     @property
     def df_n(self):
-        if self._df_n is None:
-            coord_n = W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,to_pd=True)
-            self._df_n = pd.concat([self.df[['turn','particle']],coord_n],axis=1)
-        
-        return self._df_n
+        return self._df.df_n
     
 
     @property
     def df_sig(self):
-        if self._df_sig is None:
-            # Asserting the existence of the emittances
-            if (self.nemitt_x is None) or (self.nemitt_x is None) or (self.nemitt_zeta is None):
-                print('Need to specifiy emittances, self.nemitt_x,self.nemitt_y,self.nemitt_zeta')
-                return None
-            
-            # Computing in sigma coordinates
-            coord_sig = norm2sigma(**self.df_n[['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co,to_pd=True)
-            self._df_sig = pd.concat([self.df_n[['turn','particle']],coord_sig],axis=1)
-        
-        return self._df_sig
+        return self._df.df_sig
     
     @property
     def tunes(self):
@@ -913,6 +952,88 @@ class Tracking_Interface():
         
         return self._tunes_n
 
+    def compute_intensity(self,coll_opening=5,from_df='_data',at_turn = None,find_plane = False):
+        _sigx = np.sqrt(self.betx*3.5e-6/self.particle_on_co.gamma0[0])
+        _sigy = np.sqrt(self.bety*3.5e-6/self.particle_on_co.gamma0[0])
+        # Ellipse in polar: r(alpha) = sqrt((a*cos(alpha))^2 + (b*sin(alpha))^2)
+        _alpha   = np.deg2rad(127.5)
+        _sigskew = np.sqrt((_sigx*np.cos(_alpha))**2 + (_sigy*np.sin(_alpha))**2)
+
+        # Collimator opening
+        coll_x = coll_opening*_sigx
+        coll_y = coll_opening*_sigy
+        coll_s = coll_opening*_sigskew
+
+
+        def lost_condition(x_min,y_min,skew_min,x_max,y_max,skew_max):
+            return ((np.abs(x_min)>coll_x)|(np.abs(y_min)>coll_y)|(np.abs(skew_min)>coll_s)|
+                    (np.abs(x_max)>coll_x)|(np.abs(y_max)>coll_y) |(np.abs(skew_max)>coll_s))
+
+        # def plane_lost(df):
+        #     _plane  = pd.Series('',index=df.x_min.index)
+        #     idx_x   = _plane.index[(np.abs(df.x_min)>coll_x)|(np.abs(df.x_max)>coll_x)]
+        #     idx_y   = _plane.index[(np.abs(df.y_min)>coll_y)|(np.abs(df.y_max)>coll_y)]
+        #     idx_skew= _plane.index[(np.abs(df.skew_min)>coll_s)|(np.abs(df.skew_max)>coll_s)]
+
+        #     _plane.loc[idx_x] += 'x'
+        #     _plane.loc[idx_y] += 'y'
+        #     _plane.loc[idx_skew] += 's'
+
+        #     return _plane
+        
+        # Keep columns
+        coordinates = ['x','y','skew']
+        keep_cols   = [f'{i}_min' for i in coordinates] + [f'{i}_max' for i in coordinates]
+        keep_cols   = ['Chunk ID','particle','start_at_turn','stop_at_turn'] + keep_cols
+        
+        if from_df == '_data':
+            group  = self.data[keep_cols]
+            if at_turn is not None:
+                group  = group[group.start_at_turn <= at_turn]
+        elif from_df == '_checkpoint':
+            #TODO
+            pass
+        elif from_df == '_df':
+            #TODO
+            pass
+
+        _lost        = lost_condition(group.x_min,group.y_min,group.skew_min,group.x_max,group.y_max,group.skew_max)
+        # _plane_lost  = plane_lost(group)
+        # _lost        = _plane_lost.apply(lambda plane_str: len(plane_str)>0)
+        idx_lost     = group.index[_lost]
+        idx_survived = group.index[~_lost]
+
+        # New columns
+        group.insert(0,'beyond_coll',False)
+        group.insert(0,'lost',False)
+
+        group.loc[idx_lost,'beyond_coll'] = True
+        group.loc[:,'lost'] = group.groupby('particle').beyond_coll.cumsum().astype(bool)
+
+        # # Finding lost plane:
+        # if find_plane:
+        #     group.insert(0,'plane',_plane_lost)
+        #     group.loc[_lost,'plane'] += '|'
+        #     _plane_df = group[['particle','plane']]
+        #     _plane_result = _plane_df.groupby('particle')['plane'].apply(pd.Series.cumsum).apply(lambda _str: _str.split('|')[0]).to_frame()
+        #     _plane_result.insert(0,'index',_plane_result.index.get_level_values(1))
+        #     _plane_result = _plane_result.sort_values('index').set_index('index')
+        #     group.loc[:,'plane'] = _plane_result['plane']
+
+        intensity = group[~group.lost].groupby('start_at_turn').count().particle
+        intensity = group[~group.lost].groupby('start_at_turn').count().particle.to_frame()
+        intensity.insert(0,'stop_at_turn',group.groupby('start_at_turn').stop_at_turn.max())
+        intensity.insert(1,'Chunk ID',group.groupby('start_at_turn')['Chunk ID'].max())
+        intensity.reset_index(drop=False,inplace=True)
+        intensity.rename(columns={'particle':'count'},inplace=True)
+        
+
+        survived  = group[~group.lost].groupby('start_at_turn').apply(lambda group: list(group.particle.values))
+        intensity.insert(3,'survived',survived.values)
+
+        starting_point = pd.DataFrame({'Chunk ID':[-1],'start_at_turn':[-1],'stop_at_turn':[0],'count':[len(group.particle.unique())],'survived':[list(group.particle.unique())]})
+        intensity      = pd.concat([starting_point,intensity]).reset_index(drop=True)
+        return intensity
 
     def initialize_monitor(self,start_at_turn=0,nturns = 1):
         monitor = xt.ParticlesMonitor( _context = self.context,num_particles = self.n_parts,

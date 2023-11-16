@@ -34,6 +34,74 @@ def export_HTML(LAYOUT,filename,tabname):
 #======================================
 
 
+# dict_to_div
+def dict_to_html(dictionaries, headers, margin=10, width=100-10,force_width=120):
+    def format_value(key,value):
+        if isinstance(value, dict):
+            return dict_to_html([value], headers=[''], margin=0, width=width,force_width=force_width)
+        return str(value)
+
+    html_content = ""
+    for i, d in enumerate(dictionaries):
+        # Add a tab character before the div content
+        html_content += f"\t<div style='background-color: #f4f4f4; padding: 10px; border-radius: 5px; margin: 0 0 5px {margin}px; width: {width}px;'><h2>{headers[i]}</h2><ul style='list-style-type: none; padding: 0; margin: 0;'>"
+        for key, value in d.items():
+            # Use flexbox for better alignment
+            if force_width:
+                html_content += f"\t\t<li style='line-height: 1; display: flex;'><div style='width: {force_width}px;'><strong>{key}:</strong></div><div style='padding-left: 10px;'>{format_value(key,value)}</div></li>"
+            else:
+                html_content += f"\t\t<li style='line-height: 1; display: flex;'><div><strong>{key}:</strong></div><div style='padding-left: 10px;'>{format_value(key,value)}</div></li>"
+        html_content += "</ul></div>"
+        if i < len(dictionaries) - 1:
+            # Add a tab character before the horizontal line
+            html_content += "\t<hr style='margin: 5px;'>"
+    return html_content
+
+def dict_to_div(dictionaries, headers, margin=10, width=100-10,height=300,force_width=120):
+    return bkmod.Div(text=dict_to_html(dictionaries, headers, margin=margin, width=width,force_width=force_width),width=width, height=height)
+
+
+
+
+# Source from groupby to facilite sliders
+#=========================================
+def source_from_groupby(df,by,columns):
+    _df_list = []
+    for col in columns:
+        _df = pd.DataFrame({f'{col}:{_key}':_group[col].values for _key,_group in df.groupby(by)})
+        _df_list.append(_df)
+
+    to_source = pd.concat(_df_list,axis=1)
+    for col in columns[::-1]:
+        to_source.insert(0,f'{col}:active',to_source[f'{col}:0'])
+    return to_source
+#=========================================
+# Set aspect ratio of the fig.
+#=====================================
+def set_aspect(fig, x_lim,y_lim, aspect=1, margin=0):
+    """Set the plot ranges to achieve a given aspect ratio.
+    """
+
+    xmin,xmax = x_lim
+    ymin,ymax = y_lim
+
+    width = (xmax - xmin)#*(1+2*margin)
+    if width <= 0:
+        width = 1.0
+    height = (ymax - ymin)#*(1+2*margin)
+    if height <= 0:
+        height = 1.0
+    xcenter = 0.5*(xmax + xmin)
+    ycenter = 0.5*(ymax + ymin)
+    r = aspect*((fig.width-margin)/fig.height)
+    # if width < r*height:
+        # width = r*height
+    # else:
+    height = width/r
+    fig.x_range = bkmod.Range1d(xcenter-0.5*width, xcenter+0.5*width)
+    fig.y_range = bkmod.Range1d(ycenter-0.5*height, ycenter+0.5*height)
+#=====================================
+
 
 # New axis function
 #=====================================
@@ -58,7 +126,37 @@ def new_x_axis(fig,axis_name,side='none'):
     return _ax,axis_name
 #======================================
 
+#======================================
+def excursion_polygon(row):
+    # skew col : y = ax + b
+    skew_angle = 127.5
+    a = np.tan(np.deg2rad(skew_angle-90))
+    b = np.max([np.abs(row['skew_max']),np.abs(row['skew_min'])])/np.cos(np.deg2rad(skew_angle-90))
 
+    # skew col : y = ax - b, x = (y+b)/a
+    x1 = [row['x_max'],a*row['x_max'] - b]
+    x2 = [(row['y_min']+b)/a,row['y_min']]
+
+    # skew col : y = -ax - b, x = -(y+b)/a
+    x3 = [-(row['y_min']+b)/a,row['y_min']]
+    x4 = [row['x_min'],-a*row['x_min'] - b]
+
+    # skew col : y = ax + b, x = (y-b)/a
+    x5 = [row['x_min'],a*row['x_min'] + b]
+    x6 = [(row['y_max']-b)/a,row['y_max']]
+
+    # skew col : y = -ax + b, x = -(y-b)/a
+    x7 = [-(row['y_max']-b)/a,row['y_max']]
+    x8 = [row['x_max'],-a*row['x_max'] + b]
+
+    if x5[1]<x4[1]:
+        x4[1],x5[1] = x5[1],x4[1]
+    
+    if x8[1]<x1[1]:
+        x1[1],x8[1] = x8[1],x1[1]
+
+    return [x1[0],x2[0],x3[0],x4[0],x5[0],x6[0],x7[0],x8[0]], [x1[1],x2[1],x3[1],x4[1],x5[1],x6[1],x7[1],x8[1]]
+#======================================
 
 def extract_lattice_info(line,twiss):
 
@@ -180,6 +278,55 @@ def compute_bblr_strength(ee_bb,x,y,betx,bety,flip_x_coord=False):
     # return strength*ee_bb.scale_strength
     return len_x*ee_bb.scale_strength,len_y*ee_bb.scale_strength
 
+def compute_bblr_strength_kick(ee_bb,x,y,betx,bety,flip_x_coord=False):
+    # Fixing exmittance since strength should be normalized at the end
+    emittxy = [1,1]
+
+    # Computing beam separation
+    if flip_x_coord:
+        x = -x
+    dx = x - ee_bb.ref_shift_x - ee_bb.other_beam_shift_x
+    dy = y - ee_bb.ref_shift_y - ee_bb.other_beam_shift_y
+    Nb    = ee_bb.n_particles
+    IL_eq = Nb*cst.elec*cst.c
+
+    gamma0 = 1/np.sqrt(1-ee_bb.beta0**2)
+    
+    r     = np.sqrt(x**2+y**2)
+    sig_x = np.sqrt(betx*emittxy[0])
+    sig_y = np.sqrt(bety*emittxy[1])
+
+    kick_factor = 2*cst.r_p*Nb/gamma0
+    kick_x = kick_factor*x*(1-np.exp(-r**2/(2*sig_x**2)))/r**2
+    kick_y = kick_factor*y*(1-np.exp(-r**2/(2*sig_y**2)))/r**2
+
+    # return strength*ee_bb.scale_strength
+    return kick_x*ee_bb.scale_strength,kick_y*ee_bb.scale_strength
+
+
+def compute_bbho_strength(ee_bb,x,y,betx,bety,beta0,flip_x_coord=False):
+    # Fixing exmittance since strength should be normalized at the end
+    emittxy = [1,1]
+
+    # Computing beam separation
+    if flip_x_coord:
+        x = -x
+    dx = x - ee_bb.ref_shift_x - ee_bb.other_beam_shift_x
+    dy = y - ee_bb.ref_shift_y - ee_bb.other_beam_shift_y
+
+    Nb     = ee_bb.slices_other_beam_num_particles[0]
+    gamma0 = 1/np.sqrt(1-beta0**2) 
+
+    r     = np.sqrt(x**2+y**2)
+    sig_x = np.sqrt(betx*emittxy[0])
+    sig_y = np.sqrt(bety*emittxy[1])
+
+    kick_factor = 2*cst.r_p*Nb/gamma0
+    kick_x = kick_factor*x*(1-np.exp(-r**2/(2*sig_x**2)))/r**2
+    kick_y = kick_factor*y*(1-np.exp(-r**2/(2*sig_y**2)))/r**2
+
+    # return strength*ee_bb.scale_strength
+    return kick_x*ee_bb.scale_strength,kick_y*ee_bb.scale_strength
 
 
 def extract_bblr_info(line,twiss):
@@ -201,15 +348,16 @@ def extract_bblr_info(line,twiss):
 
     # Finding if we need to flip x axis or not
     beam     = all_bblr[1][0].split('_')[1][-2:]
-    if beam.lower() == 'b2':
-        flip_x_coord = True
-    else:
-        flip_x_coord = False
+    # if beam.lower() == 'b2':
+        # flip_x_coord = True
+    # else:
+    flip_x_coord = False
 
     for ee,(name,tw_row) in zip(all_bblr[0],tw_data.iterrows()):
         # print(name,ee.scale_strength,tw_row.s)
 
-        strength_x,strength_y = compute_bblr_strength(ee,tw_row.x,tw_row.y,tw_row.betx,tw_row.bety,flip_x_coord=flip_x_coord)
+        # strength_x,strength_y = compute_bblr_strength(ee,tw_row.x,tw_row.y,tw_row.betx,tw_row.bety,flip_x_coord=flip_x_coord)
+        strength_x,strength_y = compute_bblr_strength_kick(ee,tw_row.x,tw_row.y,tw_row.betx,tw_row.bety,flip_x_coord=flip_x_coord)
         length   = 7.5/10
         lattice['name'].append(name)
         lattice['type'].append('bblr')
@@ -221,6 +369,48 @@ def extract_bblr_info(line,twiss):
         lattice['strength_y'].append(strength_y)
 
     return pd.DataFrame(lattice).sort_values(by='s').reset_index(drop=True)
+
+
+def extract_bbho_info(line,twiss):
+
+    # Creating lattice dictionary
+    lattice =  {}
+    lattice['name']    = []    
+    lattice['type']    = []
+    lattice['length']  = []
+    lattice['s']       = []
+    lattice['s_entry'] = []
+    lattice['s_exit']  = []
+    lattice['strength_x']= []
+    lattice['strength_y']= []
+
+    # Iterating through the elements
+    all_bblr = line.get_elements_of_type(xf.beam_elements.beambeam3d.BeamBeamBiGaussian3D)
+    tw_data  = twiss.set_index('name').loc[all_bblr[1],['s','x','y','betx','bety']]
+
+    # Finding if we need to flip x axis or not
+    beam     = all_bblr[1][0].split('_')[1][-2:]
+    # if beam.lower() == 'b2':
+        # flip_x_coord = True
+    # else:
+    flip_x_coord = False
+
+    for ee,(name,tw_row) in zip(all_bblr[0],tw_data.iterrows()):
+        # print(name,ee.scale_strength,tw_row.s)
+
+        strength_x,strength_y = compute_bbho_strength(ee,tw_row.x,tw_row.y,tw_row.betx,tw_row.bety,line.particle_ref.beta0[0],flip_x_coord=flip_x_coord)
+        length   = 0.005
+        lattice['name'].append(name)
+        lattice['type'].append('bblr')
+        lattice['length'].append(length)
+        lattice['s'].append(tw_row.s + length/2)
+        lattice['s_entry'].append(tw_row.s)
+        lattice['s_exit'].append(tw_row.s + length)
+        lattice['strength_x'].append(strength_x)
+        lattice['strength_y'].append(strength_y)
+
+    return pd.DataFrame(lattice).sort_values(by='s').reset_index(drop=True)
+
 
 
 
