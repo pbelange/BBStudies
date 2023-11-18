@@ -16,9 +16,6 @@ import xfields as xf
 import xpart as xp
 
 # BBStudies
-import sys
-sys.path.append('/Users/pbelanger/ABPLocal/BBStudies')
-sys.path.append('../../../../')
 import BBStudies.Physics.Detuning as tune
 import BBStudies.Physics.Constants as cst
     

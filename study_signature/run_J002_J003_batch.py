@@ -22,5 +22,10 @@ config = xutils.read_YAML(config_file)
 xutils.save_YAML(config,file=tmp_file)
 
 # Running Jop
-subprocess.run(["python", f"{Jobs.JOBS['J002']}/main.py","-c", f"{tmp_file}"])
-# subprocess.run(["python", f"{Jobs.JOBS['J003']}/main.py","-c", f"{tmp_file}"])
+# subprocess.run(["python", f"{Jobs.JOBS['J002']}/main.py","-c", f"{tmp_file}"])
+subprocess.run(["python", f"{Jobs.JOBS['J003']}/main.py",   "--data_path"       , f"{config['tracking']['data_path']}",
+                                                            "--checkpoint_path" , f"{config['tracking']['checkpoint_path']}",
+                                                            "--partition_name"  , f"{config['tracking']['partition_name']}",
+                                                            "--partition_ID"    , f"{config['tracking']['partition_ID']}"])
+
+

@@ -21,19 +21,12 @@ import xmask as xm
 import xfields as xf
 import xpart as xp
 
-# Custom imports
-import bokeh_tools as bktools
+
 
 # BBStudies
-import sys
-sys.path.append('/Users/pbelanger/ABPLocal/BBStudies')
-sys.path.append('../../../../')
 import BBStudies.Tracking.XsuitePlus as xPlus
-import BBStudies.Tracking.InteractionPoint as inp
-import BBStudies.Physics.Detuning as tune
-import BBStudies.Plotting.BBPlots as bbplt
-import BBStudies.Physics.Base as phys
 import BBStudies.Physics.Constants as cst
+import BBStudies.Plotting.Bokeh.Tools as bktools
 
 
 
@@ -729,9 +722,9 @@ def make_JxJy_fig(data,slider = None,title=None,width=2000,height=400,padding = 
     #=====================================
 
     # Extraction action
-    J_df = data.checkpoint[['BUNCH','Chunk ID','turn','particle']]
-    J_df.insert(4,'Jx/emitt',1/2 * (data.checkpoint_sig.x_sig**2 + data.checkpoint_sig.px_sig**2))
-    J_df.insert(5,'Jy/emitt',1/2 * (data.checkpoint_sig.y_sig**2 + data.checkpoint_sig.py_sig**2))
+    J_df = data.checkpoint[['Chunk ID','turn','particle']]
+    J_df.insert(3,'Jx/emitt',1/2 * (data.checkpoint_sig.x_sig**2 + data.checkpoint_sig.px_sig**2))
+    J_df.insert(4,'Jy/emitt',1/2 * (data.checkpoint_sig.y_sig**2 + data.checkpoint_sig.py_sig**2))
     # J_df.dropna(inplace=True)
 
     # Making Hextile grid

@@ -19,9 +19,6 @@ import xmask as xm
 import xfields as xf
 import xpart as xp
 
-# Custom imports
-import bokeh_tools as bktools
-import Presets as bkpresets
 
 # BBStudies
 
@@ -207,7 +204,7 @@ def tracking_to_HTML(data_path,checkpoint_path,partition_name,partition_ID):
 
     # Exporting to HTML
     #=====================================
-    html_filepath = str(Path(data_path).parents[0]) + f'HTML/{partition_name}_{partition_ID}.html'
+    html_filepath = str(Path(data_path).parents[0]) + f'/HTML/{partition_name}_{partition_ID}.html'
     xutils.mkdir(html_filepath)
     bktools.export_HTML(HTML_LAYOUT,html_filepath,f'Tracking - {partition_name} - {partition_ID}')
     #=====================================
