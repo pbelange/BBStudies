@@ -28,7 +28,7 @@ conda activate py-BB
 #=======================================
 conda install mamba -n base -c conda-forge
 pip install cupy-cuda11x
-mamba install cudatoolkit=11.8.0
+./Executables/miniforge3/bin/mamba install cudatoolkit=11.8.0
 pip install gpustat 
 
 
@@ -54,6 +54,9 @@ pip install NAFFlib
 python -m ipykernel install --user --name py-BB --display-name "py-BB"
 # ========================================
 
+
+# Install project package
+pip install -e ./
 
 # Install CERN packages
 #=========================================

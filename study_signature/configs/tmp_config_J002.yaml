@@ -1,31 +1,33 @@
 #======================================================
 #-- Tracking configuration
 #======================================================
-# Estimate file size -> 1 GB per 1000 turns per 20k particles
 tracking:
 
   user_context: GPU
   device_id: 2
 
-  collider_path: 
-    ../001_configure_collider/zfruits/collider_BUNCHED/collider_BUNCH_0200_config_bb_off.json
+  collider_path: colliders/collider_NO_OCTU.json
   sequence: lhcb1
-  monitor_at: TCP_H         # shortcuts stored below
-  bunch_number: 0
+  monitor_at: TCP_H          # shortcuts stored below
 
+  #---- PROCESSED DATA, CUSTOM PARTITION --
+  partition_name: TEST
+  partition_ID: NO_OCTU
+  data_path: tracking/matching_test/DATA
+  checkpoint_path: tracking/matching_test/CHECKPOINTS
+  #-----------------------------------------
 
-
+  #---- FULL DATA, PARTITIONNED BY CHUNK --
+  # Estimate turn-by-turn file size -> 1.2 GB per 1000 turns per 20k particles
+  turn_b_turn_path: tracking/matching_test/FULL/TEST_NO_OCTU
+  #----------------------------------------
 
   #=========================================
   n_parts: 20e3
-  n_turns: 22490
+  n_turns: 5000
 
   n_chunks:
   chunk_size: 1000
-
-  partition_path:
-  process_data_path: zfruits/BBB_Signature_V2/DATA
-  checkpoint_path: zfruits/BBB_Signature_V2/CHECKPOINTS
   #=========================================
 
 

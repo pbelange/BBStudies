@@ -14,44 +14,11 @@ import xobjects as xo
 
 
 # BBStudies
-import sys
-sys.path.append('/Users/pbelanger/ABPLocal/BBStudies')
-sys.path.append('/home/phbelang/abp/BBStudies')
-sys.path.append('/home/HPC/phbelang/abp/BBStudies')
 import BBStudies.Tracking.XsuitePlus as xPlus
+import BBStudies.Tracking.XMask.Utils as xutils
 import BBStudies.Tracking.Progress as pbar
-import BBStudies.Tracking.InteractionPoint as inp
-import BBStudies.Physics.Detuning as tune
-import BBStudies.Plotting.BBPlots as bbplt
 import BBStudies.Physics.Base as phys
-import BBStudies.Physics.Constants as cst
 
-
-# JOB imports
-import importlib
-sys.path.append('../../')
-main_002 = importlib.import_module('Jobs.002_user_specific_tasks.main')
-user_specific_tasks = main_002.user_specific_tasks
-
-
-
-
-
-#xPlus = importlib.reload(xPlus)
-
-
-# ==================================================================================================
-# --- Functions to read configuration files and generate configuration files for orbit correction
-# ==================================================================================================
-import ruamel.yaml
-ryaml = ruamel.yaml.YAML()
-def read_configuration(config_path="config.yaml"):
-    # Read configuration for simulations
-    with open(config_path, "r") as fid:
-        config = ryaml.load(fid)
-
-
-    return config
 
 
 
@@ -61,13 +28,6 @@ def read_configuration(config_path="config.yaml"):
 # --- Functions to load collider with a given context
 # ==================================================================================================
 def load_collider(collider_path = '../001_configure_collider/zfruits/collider_001.json',user_context = 'CPU',device_id = 0):
-
-
-    # Load collider and install collimators
-    # collider = user_specific_tasks( config_path       = "../002_user_specific_tasks/config.yaml",
-    #                                 collider_path     = "../001_configure_collider/zfruits/collider_001.json",
-    #                                 collider_out_path = None,
-    #                                 collider          = None)
 
 
     collider = xt.Multiline.from_json(collider_path)
@@ -197,21 +157,19 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     # Loading config
     #==============================
     if config is None:
-        config = read_configuration(config_path)
+        config = xutils.read_YAML(config_path)
     #==============================
 
 
     # Preparing output folder
     #==============================
-    partition_path    = config['tracking']['partition_path']
-    process_data_path = config['tracking']['process_data_path']
-    checkpoint_path   = config['tracking']['checkpoint_path']
+    turn_b_turn_path    = config['tracking']['turn_b_turn_path']
+    data_path           = config['tracking']['data_path']
+    checkpoint_path     = config['tracking']['checkpoint_path']
 
-    for _path in [partition_path,process_data_path,checkpoint_path]:
+    for _path in [turn_b_turn_path,data_path,checkpoint_path]:
         if _path is not None:
-            for parent in Path(_path+'/_').parents[::-1]:
-                if not parent.exists():
-                    parent.mkdir()    
+            xutils.mkdir(_path) 
     #==============================
 
 
@@ -240,11 +198,10 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     # Generating particle distribution
     #==============================
     # Extracting emittance from previous config
-    config_bb = read_configuration('../001_configure_collider/config.yaml')
-    beam      = sequence[-2:]
+    config_J001 = collider.metadata['config_J001']
     
-    nemitt_x,nemitt_y = (config_bb['config_collider']['config_beambeam'][f'nemitt_{plane}'] for plane in ['x','y'])
-    sigma_z           = config_bb['config_collider']['config_beambeam'][f'sigma_z']
+    nemitt_x,nemitt_y = (config_J001['config_collider']['config_beambeam'][f'nemitt_{plane}'] for plane in ['x','y'])
+    sigma_z           = config_J001['config_collider']['config_beambeam'][f'sigma_z']
     nemitt_zeta       = 1 # will be computed from matching in generate_particle()
     #-----------------------
     print('GENERATING PARTICLES')
@@ -285,7 +242,7 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     # Creating data buffer and checkpoint if needed
     #==============================
     data_buffer = None
-    if config['tracking']['process_data_path'] is not None:
+    if config['tracking']['data_path'] is not None:
         data_buffer = xPlus.Data_Buffer()
 
     checkpoint_buffer = None
@@ -330,13 +287,14 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
                                             nemitt_zeta = nemitt_zeta,
                                             sigma_z     = sigma_z,
                                             Pbar        = PBar,
-                                            progress_divide = 100)
+                                            progress_divide = 100,
+                                            config          = config)
         #--------------------------------------------
 
 
         # Data Buffer Computation
         #---------------
-        if config['tracking']['process_data_path'] is not None:
+        if config['tracking']['data_path'] is not None:
             data_buffer.process(monitor=main_monitor)
         if config['tracking']['checkpoint_path'] is not None:
             checkpoint_buffer.process(monitor=main_monitor)
@@ -344,26 +302,24 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
 
         # Saving Chunk if needed
         #--------------------------
-        if config['tracking']['partition_path'] is not None:
-            tracked.to_parquet(config['tracking']['partition_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length))
+        if config['tracking']['turn_b_turn_path'] is not None:
+            tracked.to_parquet(config['tracking']['turn_b_turn_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length))
         #--------------------------
 
     
     # Saving data buffer if needed
     #--------------------------
-    if config['tracking']['process_data_path'] is not None:
+    if config['tracking']['data_path'] is not None:
         tracked.exec_time    = PBar.main_task.finished_time
         tracked.parquet_data = '_data'
         tracked._data        = data_buffer.to_pandas()
-        bunch_number         = str(config['tracking']['bunch_number']).zfill(4)
-        tracked.to_parquet(config['tracking']['process_data_path'],partition_name='BUNCH',partition_ID=bunch_number)
+        tracked.to_parquet(config['tracking']['data_path'],partition_name=config['tracking']['partition_name'],partition_ID=config['tracking']['partition_ID'])
 
     if config['tracking']['checkpoint_path'] is not None:
         tracked.exec_time    = PBar.main_task.finished_time
         tracked.parquet_data = '_checkpoint'
         tracked._checkpoint  = checkpoint_buffer.to_pandas()
-        bunch_number         = str(config['tracking']['bunch_number']).zfill(4)
-        tracked.to_parquet(config['tracking']['checkpoint_path'],partition_name='BUNCH',partition_ID=bunch_number)
+        tracked.to_parquet(config['tracking']['checkpoint_path'],partition_name=config['tracking']['partition_name'],partition_ID=config['tracking']['partition_ID'])
     #--------------------------
 
 

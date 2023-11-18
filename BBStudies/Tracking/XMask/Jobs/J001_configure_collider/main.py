@@ -11,31 +11,19 @@ import pandas as pd
 import os
 import xtrack as xt
 import xmask as xm
-from job_specific_tools import generate_orbit_correction_setup
-from job_specific_tools import luminosity_leveling, luminosity_leveling_ip1_5, compute_PU
 
-# Initialize yaml reader
-ryaml = ruamel.yaml.YAML()
+import BBStudies
+from  BBStudies.Tracking.XMask.Jobs.J001_configure_collider.job_specific_tools import generate_orbit_correction_setup,luminosity_leveling, luminosity_leveling_ip1_5, compute_PU
+import BBStudies.Tracking.XMask.Utils as xutils
+
+
 
 
 
 
 # ==================================================================================================
-# --- Functions to read configuration files and generate configuration files for orbit correction
+# --- Functions to generate configuration files for orbit correction
 # ==================================================================================================
-def read_configuration(config_path="config.yaml",config_mad_path="../000_build_collider_from_mad/config.yaml"):
-    # Read configuration for simulations
-    with open(config_path, "r") as fid:
-        config = ryaml.load(fid)
-
-    # Also read configuration from previous generation
-    with open(config_mad_path, "r") as fid:
-        config_gen_1 = ryaml.load(fid)
-    config_mad = config_gen_1["config_mad"]
-
-    return config, config_mad
-
-
 
 def generate_configuration_correction_files(output_folder="_correction"):
     # Generate configuration files for orbit correction
@@ -114,17 +102,18 @@ def match_tune_and_chroma(collider, conf_knobs_and_tuning, match_linear_coupling
 # ==================================================================================================
 # --- Function to compute the number of collisions in the IPs (used for luminosity leveling)
 # ==================================================================================================
-def compute_collision_from_scheme(config_bb):
-    # Get the filling scheme path (in json or csv format)
-    filling_scheme_path = config_bb["mask_with_filling_pattern"]["pattern_fname"]
+def compute_collision_from_scheme(pattern_fname):
+    # # Get the filling scheme path (in json or csv format)
+    # filling_scheme_path = config_bb["mask_with_filling_pattern"]["pattern_fname"]
+
 
     # Load the filling scheme
-    if filling_scheme_path.endswith(".json"):
-        with open(filling_scheme_path, "r") as fid:
+    if pattern_fname.endswith(".json"):
+        with open(pattern_fname, "r") as fid:
             filling_scheme = json.load(fid)
     else:
         raise ValueError(
-            f"Unknown filling scheme file format: {filling_scheme_path}. It you provided a csv"
+            f"Unknown filling scheme file format: {pattern_fname}. It you provided a csv"
             " file, it should have been automatically convert when running the script"
             " 001_make_folders.py. Something went wrong."
         )
@@ -289,7 +278,7 @@ def assert_tune_chroma_coupling(collider, conf_knobs_and_tuning):
 # ==================================================================================================
 # --- Function to configure beam-beam
 # ==================================================================================================
-def configure_beam_beam(collider, config_bb):
+def configure_beam_beam(collider, config_bb,pattern_fname = ''):
     collider.configure_beambeam_interactions(
         num_particles=config_bb["num_particles_per_bunch"],
         nemitt_x=config_bb["nemitt_x"],
@@ -306,37 +295,37 @@ def configure_beam_beam(collider, config_bb):
         i_bunch_cw = None
         i_bunch_acw = None
 
-        if "pattern_fname" in config_bb["mask_with_filling_pattern"]:
+        if pattern_fname != '' :
             # Fill values if possible
-            if config_bb["mask_with_filling_pattern"]["pattern_fname"] is not None:
-                fname = config_bb["mask_with_filling_pattern"]["pattern_fname"]
-                with open(fname, "r") as fid:
-                    filling = json.load(fid)
-                filling_pattern_cw = filling["beam1"]
-                filling_pattern_acw = filling["beam2"]
+            with open(pattern_fname, "r") as fid:
+                filling = json.load(fid)
+            filling_pattern_cw = filling["beam1"]
+            filling_pattern_acw = filling["beam2"]
 
-                # Only track bunch number if a filling pattern has been provided
-                if "i_bunch_b1" in config_bb["mask_with_filling_pattern"]:
-                    i_bunch_cw = config_bb["mask_with_filling_pattern"]["i_bunch_b1"]
-                if "i_bunch_b2" in config_bb["mask_with_filling_pattern"]:
-                    i_bunch_acw = config_bb["mask_with_filling_pattern"]["i_bunch_b2"]
+            # Only track bunch number if a filling pattern has been provided
+            if "i_bunch_b1" in config_bb["mask_with_filling_pattern"]:
+                i_bunch_cw = config_bb["mask_with_filling_pattern"]["i_bunch_b1"]
+            if "i_bunch_b2" in config_bb["mask_with_filling_pattern"]:
+                i_bunch_acw = config_bb["mask_with_filling_pattern"]["i_bunch_b2"]
 
-                # Note that a bunch number must be provided if a filling pattern is provided
-                # Apply filling pattern
-                collider.apply_filling_pattern(
-                    filling_pattern_cw=filling_pattern_cw,
-                    filling_pattern_acw=filling_pattern_acw,
-                    i_bunch_cw=i_bunch_cw,
-                    i_bunch_acw=i_bunch_acw,
-                )
+            # Note that a bunch number must be provided if a filling pattern is provided
+            # Apply filling pattern
+            collider.apply_filling_pattern(
+                filling_pattern_cw=filling_pattern_cw,
+                filling_pattern_acw=filling_pattern_acw,
+                i_bunch_cw=i_bunch_cw,
+                i_bunch_acw=i_bunch_acw,
+            )
     return collider
 
 
 # ==================================================================================================
 # --- Function to compute luminosity once the collider is configured
 # ==================================================================================================
-def record_final_luminosity(collider, config_bb, l_n_collisions, crab):
+def record_final_luminosity(collider, config_collider, l_n_collisions, crab):
     
+    config_bb = config_collider["config_beambeam"]
+
     # Get the final luminoisty in all IPs
     twiss_b1 = collider["lhcb1"].twiss()
     twiss_b2 = collider["lhcb2"].twiss()
@@ -366,10 +355,10 @@ def record_final_luminosity(collider, config_bb, l_n_collisions, crab):
 
     # Update configuration
     for ip, L, PU in zip(l_ip, l_lumi, l_PU):
-        config_bb[f"luminosity_{ip}_after_optimization"] = float(L)
-        config_bb[f"Pile-up_{ip}_after_optimization"] = float(PU)
+        config_collider["config_beambeam"][f"luminosity_{ip}_after_optimization"] = float(L)
+        config_collider["config_beambeam"][f"Pile-up_{ip}_after_optimization"] = float(PU)
         
-    return config_bb
+    return config_collider
 
 
 
@@ -399,33 +388,38 @@ def save_collider(_collider,_config,file_path,include_config=False):
 # ==================================================================================================
 # --- Main function for collider configuration
 # ==================================================================================================
-def configure_collider( config          = None,
-                        config_path     = "config.yaml",
-                        config_mad_path = "../000_build_collider_from_mad/config.yaml"):
+def configure_collider(config_file = 'config.yaml'):
     
-    
-    # Preparing output folder
-    if not Path('zfruits').exists():
-        Path('zfruits').mkdir()
     
     # Generate configuration files for orbit correction
+    #-------------------
     generate_configuration_correction_files()
+    #-------------------
 
-    # Get configurations
-    _config, config_mad = read_configuration(config_path=config_path,config_mad_path=config_mad_path)
-    if config is not None:
-        pass
-    else:
-        config = _config
 
-    save_bare_collider   = config["dump_bare_collider"]
-    save_config_collider = config["dump_config_collider"]
-
-    config_sim      = config["config_simulation"]
+    # Loading collider and configs
+    #-------------------
+    config      = xutils.read_YAML(file=config_file )
+    collider    = xt.Multiline.from_json(config['from_collider'])
+    config_mad  = collider.metadata['config_J000']
     config_collider = config["config_collider"]
+    #-------------------
 
-    # Rebuild collider
-    collider = xt.Multiline.from_json(config_sim["collider_file"])
+
+    # Preparing output folder
+    #-------------------
+    save_collider = config["save_collider"]
+
+    if save_collider is not None:
+        xutils.mkdir(save_collider)
+    #-------------------
+
+    # Finding Filling scheme
+    #-------------------
+    pattern_fname = config_collider['config_beambeam']['mask_with_filling_pattern']['pattern_fname']
+    if not Path(pattern_fname).exists():
+        pattern_fname = str(Path(BBStudies.__file__).parents[1]/pattern_fname)
+    #-------------------
 
     # Install beam-beam
     collider, config_bb = install_beam_beam(collider, config_collider)
@@ -446,7 +440,7 @@ def configure_collider( config          = None,
         n_collisions_ip1_and_5,
         n_collisions_ip2,
         n_collisions_ip8,
-    ) = compute_collision_from_scheme(config_bb)
+    ) = compute_collision_from_scheme(pattern_fname)
 
     # Do the leveling if requested
     if "config_lumi_leveling" in config_collider and not config_collider["skip_leveling"]:
@@ -484,62 +478,32 @@ def configure_collider( config          = None,
     # Assert that tune, chromaticity and linear coupling are correct one last time
     assert_tune_chroma_coupling(collider, conf_knobs_and_tuning)
 
-    
-    collider_out_path = Path(config['config_simulation']['collider_file_out'])
 
-    if not skip_beam_beam:
-        # Return twiss and survey before beam-beam if requested
-        if config["dump_bb_off_collider"]:
-            print("Saving collider before beam-beam configuration")
-            # collider.to_json(str(collider_out_path.with_stem(collider_out_path.stem + '_bb_off')))
 
-            if save_config:
-                collider_dict = collider.to_dict()
-                config_dict = {
-                    "config_mad": config_mad,
-                    "config_collider": config_collider,
-                }
-                collider_dict["config_yaml"] = config_dict
-
-                #  collider.set_metadata(config_dict)
-                with open(collider_out_path.with_stem(collider_out_path.stem + '_config_bb_off'), "w") as fid:
-                    json.dump(collider_dict, fid, cls=NpEncoder)
-                
-            else:
-                collider.to_json(str(collider_out_path.with_stem(collider_out_path.stem + '_bb_off')))
-
+    activate_beam_beam = config_collider['config_beambeam']['activate_beam_beam']
+    if activate_beam_beam:
         # Configure beam-beam
-        collider = configure_beam_beam(collider, config_bb)
+        collider = configure_beam_beam(collider, config_bb,pattern_fname=pattern_fname)
 
 
 
     # Update configuration with luminosity now that bb is known
-    l_n_collisions = [n_collisions_ip1_and_5, n_collisions_ip2, n_collisions_ip1_and_5, n_collisions_ip8]
-    config_bb = record_final_luminosity(collider, config_bb, l_n_collisions, crab)
+    l_n_collisions  = [n_collisions_ip1_and_5, n_collisions_ip2, n_collisions_ip1_and_5, n_collisions_ip8]
+    config_collider = record_final_luminosity(collider,config_collider, l_n_collisions, crab)
+    config['config_collider'] = config_collider
 
-    # Drop update configuration
-    with open(collider_out_path.with_stem('config_bb_on'), "w") as fid:
-        ryaml.dump(config, fid)
 
-    if save_collider:
+
+
+    # Saving resulting collider
+    if save_collider is not None:
         # Save the final collider before tracking
-        print(f'Saving "{collider_out_path}"')
-        if save_config:
-            collider_dict = collider.to_dict()
-            config_dict = {
-                "config_mad": config_mad,
-                "config_collider": config_collider,
-            }
-            collider_dict["config_yaml"] = config_dict
+        print(f'Saving "{save_collider}"')
 
-            #  collider.set_metadata(config_dict)
-            with open(collider_out_path.with_stem(collider_out_path.stem + '_with_config'), "w") as fid:
-                json.dump(collider_dict, fid, cls=NpEncoder)
-            
-            # # Collider without config
-            # collider.to_json(str(collider_out_path))
-        else:
-            collider.to_json(str(collider_out_path))
+        # Saving config in metadata
+        collider.metadata['config_J001'] = config
+        collider.to_json(save_collider)
+
 
 
 
@@ -559,9 +523,20 @@ def configure_collider( config          = None,
 
 
 
+
 # ==================================================================================================
 # --- Script for execution
 # ==================================================================================================
+if __name__ == '__main__':
+    import argparse
+    # Adding command line parser
+    aparser = argparse.ArgumentParser()
+    aparser.add_argument("-c", "--config",      help = "Config file"  ,default = 'config.yaml')
+    args = aparser.parse_args()
+    
+    
+    assert Path(args.config).exists(), 'Invalid config path'
+    
+    collider = configure_collider(config_file = args.config)
+    #===========================
 
-if __name__ == "__main__":
-    collider = configure_collider()

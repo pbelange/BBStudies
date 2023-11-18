@@ -34,15 +34,22 @@ import BBStudies.Physics.Base as phys
 import BBStudies.Physics.Constants as cst
 
 
-import ruamel.yaml
-ryaml = ruamel.yaml.YAML()
-def read_configuration(config_path="config.yaml"):
+
+def read_YAML(config_path="config.yaml"):
+    import ruamel.yaml
+    ryaml = ruamel.yaml.YAML()
     # Read configuration for simulations
     with open(config_path, "r") as fid:
         config = ryaml.load(fid)
 
-
     return config
+
+
+def read_config_from_collider(file):
+    import json
+    with open(file, "r") as fid:
+        content = json.load(fid)
+    return content['config_yaml']
 
 
 # Setting default values
@@ -135,7 +142,10 @@ grid3 = bklay.gridplot([[BOKEH_FIGS['JxJy'],BOKEH_FIGS['Collimation']]],toolbar_
 # Importing Collider and Twiss
 #-------------------------------------
 # collider = xt.Multiline.from_json('../001_configure_collider/zfruits/collider_001.json')
-collider = xt.Multiline.from_json(f'../001_configure_collider/zfruits/collider_BUNCHED/collider_BUNCH_{bunch_number}.json')
+collider_path   = f'../001_configure_collider/zfruits/collider_BUNCHED/collider_BUNCH_{bunch_number}.json'
+config_collider = read_config_from_collider(collider_path)
+collider        = xt.Multiline.from_json(collider_path)
+
 twiss = {}
 twiss['lhcb1'] = collider['lhcb1'].twiss().to_pandas()
 twiss['lhcb2'] = collider['lhcb2'].twiss().reverse().to_pandas()
@@ -203,7 +213,7 @@ metadata['chunk size'] = (data.data.stop_at_turn - data.data.start_at_turn).max(
 # tracking_info = bkmod.Div(text=dict_to_html([metadata],['Tracking Info']),width=_default_fig_width, height=_bot_tab_height)
 tracking_info = bktools.dict_to_div([metadata],['Tracking Info'],width=_default_fig_width-10, height=_bot_tab_height, margin=10, force_width=120)
 
-config_collider = read_configuration('../001_configure_collider/config.yaml')['config_collider']
+
 collider_info = bktools.dict_to_div([config_collider],['Collider config.yaml'],width=2*_default_fig_width-10, height=_bot_tab_height+_top_tab_height, margin=10, force_width=0)
 
 

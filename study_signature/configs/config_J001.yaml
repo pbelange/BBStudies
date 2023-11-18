@@ -1,11 +1,11 @@
 
 
 # Collider file
-collider_in_file: ../000_build_collider_from_mad/zfruits/collider_000.json
+from_collider: /home/HPC/phbelang/abp/BBStudies/study_signature/colliders/collider_000.json
 
 # Save out collider
-save_bare_collider  : 
-save_config_collider: zfruits/collider_001.json
+save_collider: /home/HPC/phbelang/abp/BBStudies/study_signature/colliders/collider_001.json
+
 
 # Log
 log_file: 'tree_maker.log'
@@ -14,8 +14,6 @@ log_file: 'tree_maker.log'
 
 # Configuration for tuning of the collider
 config_collider:
-
-  
 
   config_knobs_and_tuning:
     knob_settings:
@@ -54,7 +52,7 @@ config_collider:
       # RF voltage and phases
       vrf400: 12.0 # [MV]
       lagrf400.b1: 0.5 # [rad]
-      lagrf400.b2: 0.5 # [rad]
+      lagrf400.b2: 0. # [rad]
 
       # Octupoles
       i_oct_b1: 430. # [A]
@@ -98,8 +96,9 @@ config_collider:
         c_minus_knob_1: c_minus_re_b2
         c_minus_knob_2: c_minus_im_b2
 
-  skip_beam_beam : false
+  
   config_beambeam:
+    activate_beam_beam : true
     bunch_spacing_buckets: 10
     num_slices_head_on: 11
     num_long_range_encounters_per_side:
@@ -112,7 +111,8 @@ config_collider:
     nemitt_x: 1.8e-6
     nemitt_y: 1.8e-6
     mask_with_filling_pattern:
-      pattern_fname: ../../../FillingSchemes/specific_MD8043.json
+      # Can be given relative to BBStudies project folder
+      pattern_fname: Machines/FillingSchemes/specific_MD8043.json
       i_bunch_b1: 224 # If not specified, the bunch with the worst schedule is chosen
       i_bunch_b2: 224 # Same. A value for i_bunch_b1 and i_bunch_b2 must be specified if pattern_fname is specified
 

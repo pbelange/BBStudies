@@ -536,7 +536,7 @@ class Tracking_Interface():
     
     def __init__(self,line=None,particles=None,n_turns=None,method='6D',Pbar = None,progress=False,progress_divide = 100,_context=None,
                             monitor=None,monitor_at = None,extract_columns = None,
-                            nemitt_x = None,nemitt_y = None,nemitt_zeta = None,sigma_z = None,partition_name = None,partition_ID = None):
+                            nemitt_x = None,nemitt_y = None,nemitt_zeta = None,sigma_z = None,partition_name = None,partition_ID = None,config=None):
         
         # Tracking
         #-------------------------
@@ -545,6 +545,7 @@ class Tracking_Interface():
         self.monitor        = monitor
         self.partition_name = partition_name 
         self.partition_ID   = partition_ID 
+        self.config         = config
 
         self.start_at_turn = None
         self.stop_at_turn  = None
@@ -661,7 +662,8 @@ class Tracking_Interface():
 
 
     def to_dict(self):
-        metadata = {'parquet_data'    : self.parquet_data,
+        metadata = {'config'          : self.config,
+                    'parquet_data'    : self.parquet_data,
                     'partition_name'  : self.partition_name,
                     'partition_ID'    : self.partition_ID,
                     'context_name'    : self.context_name,
@@ -853,17 +855,21 @@ class Tracking_Interface():
             else:
                 self._coord = self.df.groupby('turn').get_group(0).reset_index(drop=True)
             self._coord = self._coord[keep_col]
+        if type(self._coord) is not coordinate_table:
             self._coord = coordinate_table(self._coord,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
         return self._coord.df
     
     @property
     def coord_n(self):
+        if type(self._coord) is not coordinate_table:
+            _ = self.coord
         return self._coord.df_n
     
     @property
     def coord_sig(self):
+        if type(self._coord) is not coordinate_table:
+            _ = self.coord
         return self._coord.df_sig
-
 
     @property
     def data(self):
@@ -871,14 +877,20 @@ class Tracking_Interface():
     
     @property
     def checkpoint(self):
+        if type(self._checkpoint) is not coordinate_table:
+            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
         return self._checkpoint.df
     
     @property
     def checkpoint_n(self):
+        if type(self._checkpoint) is not coordinate_table:
+            _ = self.checkpoint
         return self._checkpoint.df_n
     
     @property
     def checkpoint_sig(self):
+        if type(self._checkpoint) is not coordinate_table:
+            _ = self.checkpoint
         return self._checkpoint.df_sig
 
 
