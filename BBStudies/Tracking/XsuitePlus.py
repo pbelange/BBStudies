@@ -1126,7 +1126,10 @@ class Tracking_Interface():
 class RenderingTracker():   
     def __init__(self,trck):
         _dct = trck.to_dict()
+        skip = ['config','W_matrix']
         for key in _dct.keys():
+            if key in skip:
+                continue
             setattr(self, key, _dct[key])
 
         self.particle_on_co = str(type(trck.particle_on_co))

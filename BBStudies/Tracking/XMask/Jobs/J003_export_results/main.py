@@ -155,11 +155,11 @@ def tracking_to_HTML(data_path,checkpoint_path,partition_name,partition_ID):
     # Adding tracking info
     #=====================================
     metadata = data.to_dict()
-    metadata.pop('parquet_data');
-    metadata.pop('W_matrix');
-    metadata.pop('particle_on_co');
-    metadata['chunk size'] = (data.data.stop_at_turn - data.data.start_at_turn).max()
-    
+    metadata['chunk size']      = (data.data.stop_at_turn - data.data.start_at_turn).max()
+    metadata['sequence']        = metadata['config']['tracking']['sequence']
+    metadata['collider_path']   = metadata['config']['tracking']['collider_path']
+    for _key in ['config','parquet_data','W_matrix','particle_on_co']
+        metadata.pop(_key);
     tracking_info = bktools.dict_to_HTML(metadata, header_text="Tracking Info", header_margin_top=20, header_margin_bottom=0,margin=20,indent= 2,nested_scale = 0.98, max_width = _default_fig_width)
     #=====================================
 
@@ -172,8 +172,8 @@ def tracking_to_HTML(data_path,checkpoint_path,partition_name,partition_ID):
         config_list[key] = _info
     
     # Adding tracking config
-    _info = bktools.dict_to_HTML(data.config, header_text='config_J002.yaml', header_margin_top=20, header_margin_bottom=0,margin=20,indent= 2,nested_scale = 0.98, max_width = _default_fig_width)
-    config_list['config_J002.yaml'] = _info
+    _info = bktools.dict_to_HTML(data.config, header_text='config_J002', header_margin_top=20, header_margin_bottom=0,margin=20,indent= 2,nested_scale = 0.98, max_width = _default_fig_width)
+    config_list['config_J002'] = _info
     #=====================================
 
 
