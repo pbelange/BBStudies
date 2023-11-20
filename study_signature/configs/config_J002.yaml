@@ -3,8 +3,8 @@
 #======================================================
 tracking:
 
-  user_context  : GPU
-  device_id     : 2
+  user_context  : CPU
+  device_id     : 
 
   collider_path : colliders/collider_NO_OCTU.json
   sequence      : lhcb1
@@ -12,14 +12,14 @@ tracking:
 
   #---- PROCESSED DATA, CUSTOM PARTITION --
   partition_name    : TEST
-  partition_ID      : 'NO_OCTU'
+  partition_ID      : 'X_ONLY_V3'
   data_path         : tracking/matching_test/DATA
   checkpoint_path   : tracking/matching_test/CHECKPOINTS
   #-----------------------------------------
 
   #---- FULL DATA, PARTITIONNED BY CHUNK --
   # Estimate turn-by-turn file size -> 1.2 GB per 1000 turns per 20k particles
-  turn_b_turn_path  : tracking/matching_test/FULL/TEST_NO_OCTU
+  turn_b_turn_path  : tracking/matching_test/FULL/TEST_X_ONLY_V3
   #----------------------------------------
   
 

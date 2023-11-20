@@ -614,7 +614,14 @@ class Tracking_Interface():
         self.monitor_at = monitor_at
         if self.monitor_at is not None:
             if line.element_names[0] != self.monitor_at:
+                at_element_idx = line.element_names.index(self.monitor_at)
+                assert particles.at_element == at_element_idx, 'particles should be generated at the lcoation of the monitor'
+                # Cycling
+                print(f'__ CYCLING LINE AT {self.monitor_at} __')
                 line.cycle(name_first_element=self.monitor_at, inplace=True)
+                # Setting at_element accordingly
+                particles.at_element               *= 0  
+                particles.start_tracking_at_element = 0
         #--------
         
         if line is not None:

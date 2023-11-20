@@ -158,7 +158,7 @@ def tracking_to_HTML(data_path,checkpoint_path,partition_name,partition_ID):
     metadata['chunk size']      = (data.data.stop_at_turn - data.data.start_at_turn).max()
     metadata['sequence']        = metadata['config']['tracking']['sequence']
     metadata['collider_path']   = metadata['config']['tracking']['collider_path']
-    for _key in ['config','parquet_data','W_matrix','particle_on_co']
+    for _key in ['config','parquet_data','W_matrix','particle_on_co']:
         metadata.pop(_key);
     tracking_info = bktools.dict_to_HTML(metadata, header_text="Tracking Info", header_margin_top=20, header_margin_bottom=0,margin=20,indent= 2,nested_scale = 0.98, max_width = _default_fig_width)
     #=====================================

@@ -93,52 +93,30 @@ def generate_particles(n_part = 1000,force_n_part = False,line = None,_context =
 
 def generate_realistic_particles(n_part = 1000,r_sig_max = 3,line = None,_context = None,at_element = None,nemitt_x = None,nemitt_y = None,sigma_z = None):
 
-    # Fixing random seed
-    np.random.seed(0)
+    generator = phys.polar_grid(r_sig     = [0] + list(np.linspace(0.1,6.5,15)),
+                            theta_sig = np.linspace(0,2*np.pi,100))
+    generator = generator.rename(columns={'y_sig':'px_sig'})[['x_sig','px_sig']]
+    n_part = len(generator)
 
-
-    # Horizontal plane: generate gaussian distribution in normalized coordinates, 2 orders of magnitude more to filter down
-    x_in_sigmas, px_in_sigmas = xp.generate_2D_gaussian(n_part*10000)
-    y_in_sigmas, py_in_sigmas = xp.generate_2D_gaussian(n_part*10000)
-
-    filtered_x = ((x_in_sigmas**2 + px_in_sigmas**2) > r_sig_max**2)
-    filtered_y = ((y_in_sigmas**2 + py_in_sigmas**2) > r_sig_max**2)
-
-    filtered = filtered_x & filtered_y
-
-    # x_in_sigmas, px_in_sigmas = xp.generate_2D_gaussian(n_part*100)
-    # y_in_sigmas, py_in_sigmas = xp.generate_2D_gaussian(n_part*100)
-
-    # filtered_x = ((x_in_sigmas**2 + px_in_sigmas**2) > r_sig_max**2)
-    # filtered_y = ((y_in_sigmas**2 + py_in_sigmas**2) > r_sig_max**2)
-
-    # filtered = filtered_x | filtered_y
-
-    x_in_sigmas  = x_in_sigmas[filtered]
-    px_in_sigmas = px_in_sigmas[filtered]
-    y_in_sigmas  = y_in_sigmas[filtered]
-    py_in_sigmas = py_in_sigmas[filtered]
 
     # Longitudinal plane: generate gaussian distribution matched to bucket 
-    zeta, delta, matcher = xp.generate_longitudinal_coordinates(num_particles=sum(filtered), distribution='gaussian',sigma_z=sigma_z, line=line,return_matcher=True)
-    nemitt_zeta = matcher._compute_emittance(matcher.rfbucket,matcher.psi)
-
+    # zeta, delta, matcher = xp.generate_longitudinal_coordinates(num_particles=n_part, distribution='gaussian',sigma_z=sigma_z, line=line,return_matcher=True)
+    # nemitt_zeta = matcher._compute_emittance(matcher.rfbucket,matcher.psi)
 
     if line is not None:
         particles = xp.build_particles( line    = line,
-                                        x_norm  = x_in_sigmas[:n_part],
-                                        px_norm = px_in_sigmas[:n_part],
-                                        y_norm  = y_in_sigmas[:n_part],
-                                        py_norm = py_in_sigmas[:n_part],
-                                        zeta    = zeta[:n_part],
-                                        delta   = delta[:n_part],
+                                        x_norm  = generator.x_sig.values,
+                                        px_norm = generator.px_sig.values,
+                                        y_norm  = None,
+                                        py_norm = None,
+                                        zeta    = None,
+                                        delta   = None,
                                         nemitt_x   = nemitt_x, nemitt_y=nemitt_y,
-                                        at_element = at_element,
-                                        _context   = _context)
+                                        at_element = at_element)
     else:
         particles = None
 
-    return particles,nemitt_zeta
+    return particles,0
 
 
 
@@ -194,6 +172,12 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
         monitor_at = monitor_at_dict[monitor_at]
     #==============================
 
+    # Cycling line at_element
+    #==============================
+    if line.element_names[0] != monitor_at:
+        line.cycle(name_first_element=monitor_at, inplace=True)
+    #==============================       
+
 
     # Generating particle distribution
     #==============================
@@ -219,7 +203,6 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
                                                             nemitt_y    = nemitt_y,
                                                             sigma_z     = sigma_z,
                                                             line        = line,
-                                                            at_element  = monitor_at,
                                                             _context    = context)
 
     n_parts  = len(particles.particle_id)
