@@ -73,8 +73,8 @@ def tracking_to_HTML(data_path,checkpoint_path,partition_name,partition_ID):
 
 
     BOKEH_FIGS['x-px'].min_border_left  = padding
-    bktools.set_aspect(BOKEH_FIGS['x-px']       , x_lim=(-6,6),y_lim=(-6,6), aspect=1, margin=padding-adjustment)
-    bktools.set_aspect(BOKEH_FIGS['y-py']       , x_lim=(-6,6),y_lim=(-6,6), aspect=1, margin=0)
+    bktools.set_aspect(BOKEH_FIGS['x-px']       , x_lim=(-11,11),y_lim=(-11,11), aspect=1, margin=padding-adjustment)
+    bktools.set_aspect(BOKEH_FIGS['y-py']       , x_lim=(-11,11),y_lim=(-11,11), aspect=1, margin=0)
     bktools.set_aspect(BOKEH_FIGS['zeta-pzeta'] , x_lim=(-1,1),y_lim=(-1,1), aspect=1, margin=0)
 
 

@@ -48,78 +48,28 @@ def load_collider(collider_path = '../001_configure_collider/zfruits/collider_00
 # ==================================================================================================
 # --- Functions to generate particle distribution
 # ==================================================================================================
-def generate_particles(n_part = 1000,force_n_part = False,line = None,_context = None,at_element = None,nemitt_x = None,nemitt_y = None):
-
-    n_part  = int(n_part)
-    n_r     = int(np.floor(np.sqrt(n_part)))
-    n_theta = int(n_part//n_r + 1)
-    coordinates = phys.polar_grid(  r_sig     = np.linspace(0,10,n_r),
-                                    theta_sig = np.linspace(0,np.pi/2,n_theta))
+def generate_particles(from_path,line,nemitt_x = None,nemitt_y = None,_context = None):
+    # Loading normalized coordinates
+    coord_df = xPlus.import_parquet(from_path)
     
-    momentum  = phys.polar_grid(  r_sig     = np.linspace(0,10,n_r),
-                                    theta_sig = np.linspace(0,np.pi/2,n_theta))
+    # Generating xsuite particles
+    particles = xp.build_particles( line        = line,
+                                    x_norm      = coord_df.x_sig.values,
+                                    px_norm     = coord_df.px_sig.values,
+                                    y_norm      = coord_df.y_sig.values,
+                                    py_norm     = coord_df.py_sig.values,
+                                    zeta        = coord_df.zeta.values,
+                                    delta       = coord_df.delta.values,
+                                    nemitt_x    = nemitt_x, nemitt_y=nemitt_y,
+                                    _context    =_context)
     
-    # Shuffling momentum
-    #-----------------------
-    ID = list(momentum.index)
-    np.random.seed(0)
-    np.random.shuffle(ID)
-    momentum = momentum.loc[ID,['x_sig','y_sig']].reset_index(drop=True).rename(columns={'x_sig':'px_sig','y_sig':'py_sig'})
-    #-----------------------
-
-    coordinates = pd.concat([coordinates,momentum],axis=1)
-    # coordinates.insert(0,'delta',0)
-    
-
-    if force_n_part:
-        coordinates = coordinates[:n_part]
-
-    if line is not None:
-        particles = xp.build_particles(  line   = line,
-                                        x_norm  =coordinates.x_sig.values,
-                                        px_norm =coordinates.px_sig.values,
-                                        y_norm  =coordinates.y_sig.values,
-                                        py_norm =coordinates.py_sig.values,
-                                        nemitt_x=nemitt_x, nemitt_y=nemitt_y,
-                                        at_element=at_element,
-                                        _context=_context)
-    else:
-        particles = None
-
-
-    
-    return particles,coordinates
-
-
-def generate_realistic_particles(n_part = 1000,r_sig_max = 3,line = None,_context = None,at_element = None,nemitt_x = None,nemitt_y = None,sigma_z = None):
-
-    generator = phys.polar_grid(r_sig     = [0] + list(np.linspace(0.1,6.5,15)),
-                            theta_sig = np.linspace(0,2*np.pi,100))
-    generator = generator.rename(columns={'y_sig':'px_sig'})[['x_sig','px_sig']]
-    n_part = len(generator)
-
-
-    # Longitudinal plane: generate gaussian distribution matched to bucket 
-    # zeta, delta, matcher = xp.generate_longitudinal_coordinates(num_particles=n_part, distribution='gaussian',sigma_z=sigma_z, line=line,return_matcher=True)
-    # nemitt_zeta = matcher._compute_emittance(matcher.rfbucket,matcher.psi)
-
-    if line is not None:
-        particles = xp.build_particles( line    = line,
-                                        x_norm  = generator.x_sig.values,
-                                        px_norm = generator.px_sig.values,
-                                        y_norm  = None,
-                                        py_norm = None,
-                                        zeta    = None,
-                                        delta   = None,
-                                        nemitt_x   = nemitt_x, nemitt_y=nemitt_y,
-                                        at_element = at_element)
-    else:
-        particles = None
-
-    return particles,0
+    return particles
 
 
 
+# ==================================================================================================
+# --- Functions to initialize monitor
+# ==================================================================================================
 def initialize_monitor(context = None,num_particles = 0,start_at_turn=0,nturns = 1):
         monitor = xt.ParticlesMonitor( _context       = context,
                                         num_particles = num_particles,
@@ -128,7 +78,9 @@ def initialize_monitor(context = None,num_particles = 0,start_at_turn=0,nturns =
         return monitor
 
 
-
+# ==================================================================================================
+# --- Main function
+# ==================================================================================================
 def particle_dist_and_track(config = None,config_path = 'config.yaml'):
 
 
@@ -144,6 +96,7 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     turn_b_turn_path    = config['tracking']['turn_b_turn_path']
     data_path           = config['tracking']['data_path']
     checkpoint_path     = config['tracking']['checkpoint_path']
+    particles_path      = config['tracking']['particles_path']
 
     for _path in [turn_b_turn_path,data_path,checkpoint_path]:
         if _path is not None:
@@ -164,7 +117,6 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     #==============================
     sequence = config['tracking']['sequence']
     line     = collider[sequence]
-    n_parts  = int(config['tracking']['n_parts'])
     n_turns  = int(config['tracking']['n_turns'])
     monitor_at_dict = config['elements'][sequence]
     monitor_at      = config['tracking']['monitor_at']
@@ -179,31 +131,26 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     #==============================       
 
 
-    # Generating particle distribution
+    # Parsing emittance
     #==============================
     # Extracting emittance from previous config
     config_J001 = collider.metadata['config_J001']
     
     nemitt_x,nemitt_y = (config_J001['config_collider']['config_beambeam'][f'nemitt_{plane}'] for plane in ['x','y'])
     sigma_z           = config_J001['config_collider']['config_beambeam'][f'sigma_z']
-    nemitt_zeta       = 1 # will be computed from matching in generate_particle()
-    #-----------------------
-    print('GENERATING PARTICLES')
-    # particles,coordinates = generate_particles( n_part      = n_parts,
-    #                                             force_n_part= False,
-    #                                             nemitt_x    = nemitt_x,
-    #                                             nemitt_y    = nemitt_y,
-    #                                             line        = line,
-    #                                             at_element  = monitor_at,
-    #                                              _context   = context)
 
-    particles,nemitt_zeta = generate_realistic_particles(   n_part      = n_parts,
-                                                            r_sig_max   = 3,
-                                                            nemitt_x    = nemitt_x,
-                                                            nemitt_y    = nemitt_y,
-                                                            sigma_z     = sigma_z,
-                                                            line        = line,
-                                                            _context    = context)
+    # Computing RF bucket emittance
+    rfbucket    = xPlus.RFBucket(line)
+    nemitt_zeta = rfbucket.compute_emittance(sigma_z=sigma_z)
+    #==============================
+
+    # Generating particles
+    #==============================
+    particles = generate_particles(from_path    = particles_path,
+                                    line        = line,
+                                    nemitt_x    = nemitt_x,
+                                    nemitt_y    = nemitt_y,
+                                    _context    = context) 
 
     n_parts  = len(particles.particle_id)
     #==============================
@@ -286,7 +233,11 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
         # Saving Chunk if needed
         #--------------------------
         if config['tracking']['turn_b_turn_path'] is not None:
-            tracked.to_parquet(config['tracking']['turn_b_turn_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length))
+            if config['tracking']['handpick_every'] is not None:
+                handpick_particles = tracked.df.particle.unique()[::config['tracking']['handpick_every']]
+            else:
+                handpick_particles = None
+            tracked.to_parquet(config['tracking']['turn_b_turn_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length),handpick_particles=handpick_particles)
         #--------------------------
 
     

@@ -308,7 +308,7 @@ def make_Twiss_Fig(collider,twiss,width=2000,height=400,twiss_columns = None):
 
 
 #=========================================================================================================================
-def make_scatter_fig(df,xy,slider=None,title=None,width=2000,height=400,padding = None):
+def make_scatter_fig(df,xy,alpha=0.3,slider=None,title=None,width=2000,height=400,padding = None):
 
     # Creating Figure
     #=====================================
@@ -317,7 +317,7 @@ def make_scatter_fig(df,xy,slider=None,title=None,width=2000,height=400,padding 
                     width           = width,
                     title           = title, 
                     tools           = "box_zoom,pan,reset,save,hover,wheel_zoom,crosshair",
-                    active_drag     = "box_zoom",
+                    active_drag     = "pan",
                     active_scroll   = "wheel_zoom",
                     active_inspect  = None,
                     toolbar_location= "right")
@@ -347,9 +347,9 @@ def make_scatter_fig(df,xy,slider=None,title=None,width=2000,height=400,padding 
     # Plotting
     #=====================================
     if slider is not None:
-        fig.scatter(f'{x}:active',f'{y}:active', alpha=0.3, source=source)
+        fig.scatter(f'{x}:active',f'{y}:active', alpha=alpha, source=source)
     else:
-        fig.scatter(x,y, alpha=0.3, source=source)
+        fig.scatter(x,y, alpha=alpha, source=source)
     #=====================================
 
         # Adding slider callback

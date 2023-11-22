@@ -19,6 +19,7 @@ from xdeps.refs import ARef
 
 import BBStudies.Analysis.Footprint as footp
 import BBStudies.Tracking.Progress as pbar
+import BBStudies.Physics.Constants as cst
 
 
 
@@ -151,6 +152,58 @@ def filter_twiss(_twiss,entries = ['drift','..']):
         _twiss    =    _twiss[np.invert(_twiss.index.str.contains(ridof,regex=False))]
 
     return _twiss
+#====================================
+
+
+#====================================
+class RFBucket(xp.longitudinal.rf_bucket.RFBucket):
+    # From https://github.com/xsuite/xpart/blob/main/xpart/longitudinal/rf_bucket.py
+    def __init__(self,line):
+        dct_longitudinal = xp.longitudinal.generate_longitudinal._characterize_line(line,line.particle_ref)
+        dct_longitudinal['circumference'] = line.get_length()
+        dct_longitudinal['gamma'] = line.particle_ref.gamma0[0]
+        dct_longitudinal['mass_kg'] = line.particle_ref.mass0/(cst.c**2)*cst.elec
+        dct_longitudinal['charge_coulomb'] = np.abs(line.particle_ref.q0)*cst.elec
+        dct_longitudinal['momentum_compaction_factor'] = line.twiss()['momentum_compaction_factor']
+
+        super().__init__(circumference      = dct_longitudinal['circumference'],
+                            gamma           = dct_longitudinal['gamma'],
+                            mass_kg         = dct_longitudinal['mass_kg'],
+                            charge_coulomb  = dct_longitudinal['charge_coulomb'],
+                            alpha_array     = np.atleast_1d(dct_longitudinal['momentum_compaction_factor']),
+                            harmonic_list   = np.atleast_1d(dct_longitudinal['h_list']),
+                            voltage_list    = np.atleast_1d(dct_longitudinal['voltage_list']),
+                            phi_offset_list = np.atleast_1d((np.array(dct_longitudinal['lag_list_deg']) - 180)/180*np.pi),
+                            p_increment     = 0)
+
+    @property
+    def zeta_max(self):
+        return self.circumference / (2*np.amin(self.h))
+
+    def invariant(self,zeta0,npoints = 1000):
+        # Returns the positive branch of the invariant  crossing (zeta,delta) = (zeta0,0)
+        zeta_vec  = np.linspace(-zeta0,zeta0,npoints)
+        delta_vec = self.equihamiltonian(zcut=zeta0)(zeta_vec)
+        return zeta_vec,delta_vec
+    
+    
+    def compute_emittance(self,sigma_z = 0.09):
+        matcher = xp.longitudinal.rfbucket_matching.RFBucketMatcher(rfbucket            = self, 
+                                                                    distribution_type   = xp.longitudinal.rfbucket_matching.ThermalDistribution,
+                                                                    sigma_z             = sigma_z)
+        _,_, _, _ = matcher.generate(macroparticlenumber=1)
+        return matcher._compute_emittance(matcher.rfbucket,matcher.psi)
+#====================================
+
+
+#====================================
+def delta2pzeta(delta,beta0):
+    # from https://github.com/xsuite/xpart/blob/a1232d03fc0ee90cb4b64fe9f0ce086c68934f5a/xpart/build_particles.py#L134C1-L143C43
+    delta_beta0 = delta * beta0
+    ptau_beta0 = (delta_beta0 * delta_beta0
+                        + 2. * delta_beta0 * beta0 + 1.)**0.5 - 1.
+    pzeta = ptau_beta0 / beta0 / beta0
+    return pzeta
 #====================================
 
 
@@ -772,7 +825,7 @@ class Tracking_Interface():
 
 
         
-    def to_parquet(self,filename,partition_name = None,partition_ID = None,parquet_data = None):
+    def to_parquet(self,filename,partition_name = None,partition_ID = None,parquet_data = None,handpick_particles = None):
         if partition_name is not None:
             self.partition_name = partition_name  
         if partition_ID is not None:
@@ -785,9 +838,14 @@ class Tracking_Interface():
         if self.parquet_data == '_df':
             _ = self.df
             self.df.insert(0,self.partition_name,self.partition_ID)
-            self.df.to_parquet(filename,    partition_cols         = [self.partition_name],
-                                            existing_data_behavior = 'delete_matching',
-                                            basename_template      = 'tracking_data_{i}.parquet')
+            if handpick_particles is not None:
+                self.df[self.df.particle.isin(handpick_particles)].to_parquet(filename,    partition_cols         = [self.partition_name],
+                                                                                            existing_data_behavior = 'delete_matching',
+                                                                                            basename_template      = 'tracking_data_{i}.parquet')
+            else:
+                self.df.to_parquet(filename,    partition_cols         = [self.partition_name],
+                                                existing_data_behavior = 'delete_matching',
+                                                basename_template      = 'tracking_data_{i}.parquet')
             self.df.drop(columns=[self.partition_name],inplace=True)
         elif self.parquet_data == '_data':
             _ = self.data
@@ -849,9 +907,12 @@ class Tracking_Interface():
     @property
     def sig_skew_coll(self):
         # Ellipse in polar: r(alpha) = sqrt((a*cos(alpha))^2 + (b*sin(alpha))^2)
-        _alpha   = np.deg2rad(127.5)
-        _sigskew = np.sqrt((self.sig_x_coll*np.cos(_alpha))**2 + (self.sig_y_coll*np.sin(_alpha))**2)
+        _sigskew = np.sqrt((self.sig_x_coll*np.cos(self.coll_alpha))**2 + (self.sig_y_coll*np.sin(self.coll_alpha))**2)
         return _sigskew
+    
+    @property
+    def coll_alpha(self):
+        return np.deg2rad(127.5)
 
     @property
     def coord(self):
@@ -972,16 +1033,10 @@ class Tracking_Interface():
         return self._tunes_n
 
     def compute_intensity(self,coll_opening=5,from_df='_data',at_turn = None,find_plane = False):
-        _sigx = np.sqrt(self.betx*3.5e-6/self.particle_on_co.gamma0[0])
-        _sigy = np.sqrt(self.bety*3.5e-6/self.particle_on_co.gamma0[0])
-        # Ellipse in polar: r(alpha) = sqrt((a*cos(alpha))^2 + (b*sin(alpha))^2)
-        _alpha   = np.deg2rad(127.5)
-        _sigskew = np.sqrt((_sigx*np.cos(_alpha))**2 + (_sigy*np.sin(_alpha))**2)
-
         # Collimator opening
-        coll_x = coll_opening*_sigx
-        coll_y = coll_opening*_sigy
-        coll_s = coll_opening*_sigskew
+        coll_x = coll_opening*self.sig_x_coll
+        coll_y = coll_opening*self.sig_y_coll
+        coll_s = coll_opening*self.sig_skew_coll
 
 
         def lost_condition(x_min,y_min,skew_min,x_max,y_max,skew_max):
@@ -1047,9 +1102,14 @@ class Tracking_Interface():
         intensity.rename(columns={'particle':'count'},inplace=True)
         
 
-        survived  = group[~group.lost].groupby('start_at_turn').apply(lambda group: list(group.particle.values))
+        # Adding survived list
+        survived = pd.Series(len(intensity.index)*[[]],index=intensity.index)
+        _tmp     = group[~group.lost].groupby('start_at_turn').apply(lambda group: list(group.particle.values))
+        if type(_tmp) is pd.Series:
+            survived.loc[:] = _tmp.values
         intensity.insert(3,'survived',survived.values)
 
+        # Appending to intensity
         starting_point = pd.DataFrame({'Chunk ID':[-1],'start_at_turn':[-1],'stop_at_turn':[0],'count':[len(group.particle.unique())],'survived':[list(group.particle.unique())]})
         intensity      = pd.concat([starting_point,intensity]).reset_index(drop=True)
         return intensity
