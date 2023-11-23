@@ -1,0 +1,53 @@
+#======================================================
+#-- Tracking configuration
+#======================================================
+tracking:
+
+  user_context: GPU
+  device_id: 1
+
+  collider_path: colliders/collider_BUNCH_0000.json
+  sequence: lhcb1
+  monitor_at: TCP_H          # shortcuts stored below
+
+
+
+
+  #---- PROCESSED DATA, CUSTOM PARTITION --
+  partition_name: TEST
+  partition_ID: BUNCH_0000_SKEWPLANE_ZETA_2
+  data_path: tracking/coupling_study/DATA
+  checkpoint_path: tracking/coupling_study/CHECKPOINTS
+  #-----------------------------------------
+
+  #---- FULL DATA, PARTITIONNED BY CHUNK --
+  # Estimate turn-by-turn file size -> 1.2 GB per 1000 turns per 20k particles
+  turn_b_turn_path: tracking/coupling_study/FULL/TEST_BUNCH_0000_SKEWPLANE_ZETA_2
+  handpick_every: 100
+  #----------------------------------------
+
+  #---- Particles to track --
+  particles_path: particles/SKEWPLANE_ZETA_2.parquet
+
+  n_turns: 10000
+  n_chunks:
+  chunk_size: 1000
+  #--------------------------
+
+
+
+
+
+#======================================================
+#-- Shortcuts for element names
+#======================================================
+elements:
+  lhcb1:
+    TCP_V: tcp.d6l7.b1
+    TCP_H: tcp.c6l7.b1
+    TCP_S: tcp.b6l7.b1
+
+  lhcb2:
+    TCP_V: tcp.d6r7.b2
+    TCP_H: tcp.c6r7.b2
+    TCP_S: tcp.b6r7.b2

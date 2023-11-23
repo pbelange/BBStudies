@@ -780,8 +780,10 @@ def make_JxJy_fig(data,slider = None,title=None,width=2000,height=400,padding = 
     cmap      = bktrfm.linear_cmap('counts:active', 'Viridis256', 0, data.n_parts//n_bins,nan_color=nan_color)
     fig.hex_tile(q="q", r="r", size= _size, line_color=None, source=source,alpha=1,fill_color=cmap)
 
-    fig.hspan(y=[0], line_width=[2], line_color="black")
-    fig.vspan(x=[0], line_width=[2], line_color="black")
+    hline = fig.hspan(y=[0], line_width=[2], line_color="black")
+    vline = fig.vspan(x=[0], line_width=[2], line_color="black")
+    hline.level = 'underlay'
+    vline.level = 'underlay'
 
     # source = bkmod.ColumnDataSource(J_df)
     # fig.scatter('Jx/emitt','Jy/emitt', alpha=0.6, source=source)
