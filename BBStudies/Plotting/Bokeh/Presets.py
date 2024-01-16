@@ -327,7 +327,7 @@ def make_scatter_fig(df,xy,alpha=0.3,slider=None,title=None,width=2000,height=40
     _palette = bkpalettes.Spectral10
     fig.tags = [{str(type(t)).split('.')[-1].split('\'')[0]:t for t in fig.tools},
                 {'palette':_palette}]
-    fig.tags[0]['HoverTool'].update(tooltips = [('Particle', '$index'),(f'Coordinates', '($x,$y)')])
+    fig.tags[0]['HoverTool'].update(tooltips = [('Particle', '@particle'),(f'Coordinates', '($x,$y)')])
     #=====================================
 
 
@@ -339,7 +339,7 @@ def make_scatter_fig(df,xy,alpha=0.3,slider=None,title=None,width=2000,height=40
         to_source.insert(0,'particle',df.groupby('Chunk ID').get_group(0).particle)
         source = bkmod.ColumnDataSource(to_source)
     else:
-        source = bkmod.ColumnDataSource(df[[x,y]])
+        source = bkmod.ColumnDataSource(df[['particle',x,y]])
 
     #=====================================
 

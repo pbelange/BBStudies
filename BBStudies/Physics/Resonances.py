@@ -58,17 +58,20 @@ def resonance_df(order):
                     else:
                         ID        = (np.inf,np.inf) + Fraction(str(x0)).limit_denominator(20).as_integer_ratio()
                     
-                    resonances.append({ 'ID'   :ID,
-                                        'Order':int(a+b),
-                                        'slope':slope,
-                                        'y0'   :y0,
-                                        'x0'   :x0})
+                    resonances.append({ 'ID'    :ID,
+                                        'Order' :int(a+b),
+                                        'a'     :int(a),
+                                        'b'     :int(b),
+                                        'hkpq'  : (int(h),int(k),int(p),int(q)), 
+                                        'slope' :slope,
+                                        'y0'    :y0,
+                                        'x0'    :x0})
 
             if q == k and p == 1: 
                 break
 
     resonances = pd.DataFrame(resonances)
-    resonances = resonances.drop_duplicates(subset='ID').reset_index(drop=True)
+    # resonances = resonances.drop_duplicates(subset='ID').reset_index(drop=True)
     return resonances
 
 

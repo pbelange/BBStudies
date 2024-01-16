@@ -151,8 +151,13 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
                                     nemitt_x    = nemitt_x,
                                     nemitt_y    = nemitt_y,
                                     _context    = context) 
-
     n_parts  = len(particles.particle_id)
+            
+    # Handpicked for lighter t-by-t data
+    if config['tracking']['handpick_every'] is not None:
+        handpick_particles = particles.particle_id[::config['tracking']['handpick_every']]
+    else:
+        handpick_particles = None    
     #==============================
 
 
@@ -233,10 +238,6 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
         # Saving Chunk if needed
         #--------------------------
         if config['tracking']['turn_b_turn_path'] is not None:
-            if config['tracking']['handpick_every'] is not None:
-                handpick_particles = tracked.df.particle.unique()[::config['tracking']['handpick_every']]
-            else:
-                handpick_particles = None
             tracked.to_parquet(config['tracking']['turn_b_turn_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length),handpick_particles=handpick_particles)
         #--------------------------
 
