@@ -71,11 +71,11 @@ def generate_particles(from_path,line,nemitt_x = None,nemitt_y = None,_context =
 # --- Functions to initialize monitor
 # ==================================================================================================
 def initialize_monitor(context = None,num_particles = 0,start_at_turn=0,nturns = 1):
-        monitor = xt.ParticlesMonitor( _context       = context,
-                                        num_particles = num_particles,
-                                        start_at_turn = start_at_turn, 
-                                        stop_at_turn  = start_at_turn + nturns)
-        return monitor
+        return xt.ParticlesMonitor( _context       = context,
+                                    num_particles = num_particles,
+                                    start_at_turn = start_at_turn, 
+                                    stop_at_turn  = start_at_turn + nturns)
+
 
 
 # ==================================================================================================
@@ -167,6 +167,11 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     #==============================
     n_chunks   = config['tracking']['n_chunks']
     main_chunk = config['tracking']['chunk_size']
+    if n_chunks:
+        n_chunks = int(n_chunks)
+    if main_chunk:
+        main_chunk = int(main_chunk)
+    
 
     chunks   = xPlus.split_in_chunks(n_turns,n_chunks=n_chunks,main_chunk=main_chunk)
     #==============================
@@ -178,7 +183,7 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     #==============================
     data_buffer = None
     if config['tracking']['data_path'] is not None:
-        data_buffer = xPlus.Data_Buffer()
+        data_buffer = xPlus.naff_Buffer()
 
     checkpoint_buffer = None
     if config['tracking']['checkpoint_path'] is not None:
@@ -238,7 +243,17 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
         # Saving Chunk if needed
         #--------------------------
         if config['tracking']['turn_b_turn_path'] is not None:
-            tracked.to_parquet(config['tracking']['turn_b_turn_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length),handpick_particles=handpick_particles)
+            if config['tracking']['last_n_turns'] is not None:
+                # Keeping only last_n_turns!
+                #----------
+                turn_idx_min = config['tracking']['n_turns'] - config['tracking']['last_n_turns']
+                tracked._df._df = tracked.df[tracked.df.turn>=turn_idx_min]
+                #----------
+
+                if (context.nparray_from_context_array(particles.at_turn).max())>turn_idx_min:
+                    tracked.to_parquet(config['tracking']['turn_b_turn_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length),handpick_particles=handpick_particles)
+            else:
+                tracked.to_parquet(config['tracking']['turn_b_turn_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length),handpick_particles=handpick_particles)
         #--------------------------
 
     

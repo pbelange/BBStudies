@@ -6,78 +6,21 @@ import numpy as np
 import pandas as pd
 from rich.progress import Progress, BarColumn, TextColumn,TimeElapsedColumn,SpinnerColumn,TimeRemainingColumn
 import pickle
-import dask.dataframe as dd
+
 import gc
 import traceback
 from pathlib import Path
+import nafflib
 
 import xobjects as xo
 import xtrack as xt
 import xpart as xp
 
-from xdeps.refs import ARef
+
 
 import BBStudies.Analysis.Footprint as footp
 import BBStudies.Tracking.Progress as pbar
 import BBStudies.Physics.Constants as cst
-
-
-
-
-# ADDING FUNCTIONS TO AREF CLASS:
-#============================================================
-class RenderingKnobs(object):   
-    def __init__(self, my_dict):
-        for key in my_dict.keys():
-            setattr(self, key, my_dict[key])
-
-
-def knobs(self,render = True):
-    _fields = self._value._fields
-    
-    sub_knobs   = []
-    print_names = {}
-    for key in _fields:
-
-        _attr = getattr(self,key)
-
-        # List or not list
-        if isinstance(_attr._value, (type(np.array([])), list)):
-            _expr = [_attr[i]._expr for i in range(len(_attr._value))]
-        else:
-            _expr = _attr._expr
-
-        if _expr is None:
-            print_names[key] = None
-        else:
-            print_names[key] = str(_expr)
-
-        if str(_expr)[0] + str(_expr)[-1] == '[]':
-            matches    = re.findall(r"[^[]*\[([^]]*)\]", str(_expr)[1:-1])
-        else:
-            matches    = re.findall(r"[^[]*\[([^]]*)\]", str(_expr))
-        sub_knobs += [m[1:-1] for m in matches]
-
-    print_values = {}
-    for _var in list(set(sub_knobs)):
-        _value = self._manager.containers['vars'][_var]._value
-        print_values[f"'vars['{_var}']'"] = _value
-
-    printable = {**print_values,**{ 30*'-': 30*'-'},**print_names}
-    
-    # Either shows the knobs or return list of knobs
-    if render:
-        rich.inspect(RenderingKnobs(printable),title=str(self._value), docs=False)
-    else:
-        return list(set(sub_knobs))
-
-
-def inspect(self,**kwargs):
-    return rich.inspect(self._value,**kwargs)
-
-ARef.inspect = inspect
-ARef.knobs   = knobs
-#============================================================
 
 
 #============================================================
@@ -271,6 +214,12 @@ class NpEncoder(json.JSONEncoder):
 #========================================
 def import_parquet(data_path,partition_name=None,partition_ID=None,variables = None,start_at_turn = None,stop_at_turn = None,handpick_particles = None):
 
+    # -- DASK ----
+    import dask.dataframe as dd
+    import dask.config as ddconfig
+    ddconfig.set({"dataframe.convert-string": False})
+    # https://dask.discourse.group/t/ddf-is-converting-column-of-lists-dicts-to-strings/2446
+    #-------------
 
 
 
@@ -308,7 +257,7 @@ def import_parquet(data_path,partition_name=None,partition_ID=None,variables = N
     #-----------------------------
     df        = _partition.compute()
     if partition_name is not None:
-        df = df.set_index(partition_name).reset_index()
+        df = df.set_index(partition_name).reset_index(drop=True)
     else:
         df = df.reset_index(drop=True)
     #-----------------------------
@@ -397,9 +346,9 @@ class Checkpoint_Buffer():
         self.data['pzeta'].append(pzeta[:,0])
         #-------------------------
 
-# Data_Buffer:
+# Excursion_Buffer:
 #===================================================
-class Data_Buffer():
+class Excursion_Buffer():
     def __init__(self,monitor=None):
         self.monitor = monitor
         self.call_ID = None
@@ -465,8 +414,11 @@ class Data_Buffer():
         stop_at_turn  = self.monitor.stop_at_turn
 
         x    = self.monitor.x
+        px   = self.monitor.px
         y    = self.monitor.y
+        py   = self.monitor.py
         zeta = self.monitor.zeta
+        pzeta = np.divide(self.monitor.ptau,self.monitor.beta0, np.zeros_like(self.monitor.ptau) + np.nan,where=self.monitor.beta0!=0)
          
         # Rotating for skew collimator
         #-------------------------
@@ -476,9 +428,9 @@ class Data_Buffer():
 
         # Tunes
         #-------------------------
-        Qx    = footp.NAFFlib_tune(x   ,Hann_order=2,multiparticles = True)
-        Qy    = footp.NAFFlib_tune(y   ,Hann_order=2,multiparticles = True)
-        Qzeta = footp.NAFFlib_tune(zeta,Hann_order=2,multiparticles = True) 
+        Qx    = nafflib.tune(x, px, window_order=2, window_type="hann")
+        Qy    = nafflib.tune(y, py, window_order=2, window_type="hann")
+        Qzeta = nafflib.tune(zeta, pzeta, window_order=2, window_type="hann")
 
         # Extracting max and min || Note: 2D array are ordered following [particles,turns]
         #-------------------------
@@ -524,6 +476,118 @@ class Data_Buffer():
         #-------------------------
 
 
+# naff_Buffer:
+#===================================================
+class naff_Buffer():
+    def __init__(self,monitor=None):
+        self.monitor = monitor
+        self.call_ID = None
+        
+        
+        self.data = {}
+        self.data['Chunk ID'] = []
+        self.data['particle'] = []
+        self.data['state']    = []
+        self.data['start_at_turn'] = []
+        self.data['stop_at_turn']  = []
+
+        self.data['Ax']  = []
+        self.data['Qx']  = []
+        self.data['Ay']  = []
+        self.data['Qy']  = []
+        self.data['Azeta']  = []
+        self.data['Qzeta']  = []
+
+
+        self.particle_id = None
+
+
+
+
+    def to_dict(self):
+        dct    = {}
+        nparts = len(self.particle_id)
+
+        for key,value in self.data.items():
+
+            if len(np.shape(value)) == 1:
+                dct[key] = np.repeat(value,nparts)
+            elif len(np.shape(value)) == 2:
+                dct[key] = np.hstack(value)
+            elif len(np.shape(value)) == 3:
+                # numpy array for each particle
+                if np.issubdtype(value[0].dtype, complex):
+                    # is complex
+                    dct[key] = [[(c.real, c.imag) for c in row] for row in np.vstack(value).tolist()]
+                else:
+                    dct[key] = np.vstack(value).tolist()
+
+        return dct
+    
+    def to_pandas(self):
+        return pd.DataFrame(self.to_dict())
+
+    def process(self,monitor = None):
+
+        # Initialize
+        #-------------------------
+        if self.call_ID is None:
+            self.call_ID = 0
+        else:
+            self.call_ID += 1
+        
+        if monitor is not None:
+            self.monitor = monitor
+
+        if self.particle_id is None:
+            self.particle_id = np.arange(self.monitor.part_id_start,self.monitor.part_id_end)
+        #-------------------------
+
+
+        # Extracting data
+        #-------------------------
+        start_at_turn = self.monitor.start_at_turn
+        stop_at_turn  = self.monitor.stop_at_turn
+
+        x    = self.monitor.x
+        px   = self.monitor.px
+        y    = self.monitor.y
+        py   = self.monitor.py
+        zeta = self.monitor.zeta
+        pzeta = np.divide(self.monitor.ptau,self.monitor.beta0, np.zeros_like(self.monitor.ptau) + np.nan,where=self.monitor.beta0!=0)
+         
+        # Extracting 10 harmonics
+        #--------------------------
+        n_harm = 10
+        window_order = 4
+        window_type  = 'hann' 
+        try:
+            Ax,Qx  = nafflib.multiparticle_harmonics(x, px, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
+            Ay,Qy  = nafflib.multiparticle_harmonics(y, py, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
+            Azeta,Qzeta  = nafflib.multiparticle_harmonics(zeta, pzeta, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
+        except Exception as error:
+            print("An exception occurred:", type(error).__name__, "-", error) # An exception occurred
+            n_part = len(x)
+            Ax,Qx = n_part * [n_harm*[np.nan+ 1j*np.nan]],n_part * [n_harm*[np.nan]]
+            Ay,Qy =  n_part * [n_harm*[np.nan+ 1j*np.nan]],n_part * [n_harm*[np.nan]]
+            Azeta,Qzeta =  n_part * [n_harm*[np.nan+ 1j*np.nan]],n_part * [n_harm*[np.nan]]
+
+
+        # Appending to data
+        #-------------------------
+        self.data['Chunk ID'].append(self.call_ID)
+        self.data['particle'].append(self.particle_id)
+        self.data['state'].append(self.monitor.state[:,-1])
+        self.data['start_at_turn'].append(start_at_turn)
+        self.data['stop_at_turn'].append(stop_at_turn)
+        #----------
+        self.data['Ax'].append(Ax)
+        self.data['Qx'].append(Qx)
+        self.data['Ay'].append(Ay)
+        self.data['Qy'].append(Qy)
+        self.data['Azeta'].append(Azeta)
+        self.data['Qzeta'].append(Qzeta)
+        #-------------------------
 
 def split_in_chunks(turns,n_chunks = None,main_chunk = None):
     if n_chunks is not None:
@@ -1000,15 +1064,10 @@ class Tracking_Interface():
             self._tunes_n = None
 
         if self._tunes is None:
-            if self._tunesMTD == 'pynaff':
-                self._oldTunesMTD = 'pynaff'
-                self._tunes    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.PyNAFF_tune(_part['x']),'Qy':footp.PyNAFF_tune(_part['y'])}))
-            if self._tunesMTD == 'fft':
-                self._oldTunesMTD = 'fft'
-                self._tunes    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.FFT_tune(_part['x']),'Qy':footp.FFT_tune(_part['y'])}))
             if self._tunesMTD == 'nafflib':
                 self._oldTunesMTD = 'nafflib'
-                self._tunes    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.NAFFlib_tune(_part['x']),'Qy':footp.NAFFlib_tune(_part['y'])}))
+                self._tunes    = self.df.groupby('particle').apply(lambda _part: pd.Series({'Qx':nafflib.tune(_part['x'], _part['px'], window_order=2, window_type="hann"),
+                                                                                            'Qy':nafflib.tune(_part['y'], _part['py'], window_order=2, window_type="hann")}))
         
         return self._tunes
 
@@ -1020,15 +1079,10 @@ class Tracking_Interface():
             self._tunes_n = None
 
         if self._tunes_n is None:
-            if self._tunesMTD == 'pynaff':
-                self._oldTunesMTD = 'pynaff'
-                self._tunes_n    = self.df_n.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.PyNAFF_tune(_part['x_n']),'Qy':footp.PyNAFF_tune(_part['y_n'])}))
-            if self._tunesMTD == 'fft':
-                self._oldTunesMTD = 'fft'
-                self._tunes_n    = self.df_n.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.FFT_tune(_part['x_n']),'Qy':footp.FFT_tune(_part['y_n'])}))
             if self._tunesMTD == 'nafflib':
                 self._oldTunesMTD = 'nafflib'
-                self._tunes_n    = self.df_n.groupby('particle').apply(lambda _part: pd.Series({'Qx':footp.NAFFlib_tune(_part['x_n']),'Qy':footp.NAFFlib_tune(_part['y_n'])}))
+                self._tunes_n    = self.df_n.groupby('particle').apply(lambda _part: pd.Series({'Qx':nafflib.tune(_part['x_n'], _part['px_n'], window_order=2, window_type="hann"),
+                                                                                                'Qy':nafflib.tune(_part['y_n'], _part['py_n'], window_order=2, window_type="hann")}))
         
         return self._tunes_n
 

@@ -1,0 +1,54 @@
+#======================================================
+#-- Tracking configuration
+#======================================================
+tracking:
+
+  user_context: GPU
+  device_id: 3
+
+  collider_path: colliders/collider_BUNCH_0000.json
+  sequence: lhcb1
+  monitor_at: TCP_H          # shortcuts stored below
+
+
+
+
+  #---- PROCESSED DATA, CUSTOM PARTITION --
+  partition_name: KAM
+  partition_ID: BUNCH_0000_XY_ZETA_3
+  data_path: tracking/DATA
+  checkpoint_path: tracking/CHECKPOINTS
+  #-----------------------------------------
+
+  #---- FULL DATA, PARTITIONNED BY CHUNK --
+  # Estimate turn-by-turn file size -> 1.2 GB per 1000 turns per 20k particles
+  turn_b_turn_path: tracking/FULL/KAM_BUNCH_0000_XY_ZETA_3
+  handpick_every:
+  last_n_turns: 100
+  #----------------------------------------
+
+  #---- Particles to track --
+  particles_path: particles/XY_ZETA_3.parquet
+
+  n_turns: 1e5
+  n_chunks:
+  chunk_size: 2e4
+  #--------------------------
+
+
+
+
+
+#======================================================
+#-- Shortcuts for element names
+#======================================================
+elements:
+  lhcb1:
+    TCP_V: tcp.d6l7.b1
+    TCP_H: tcp.c6l7.b1
+    TCP_S: tcp.b6l7.b1
+
+  lhcb2:
+    TCP_V: tcp.d6r7.b2
+    TCP_H: tcp.c6r7.b2
+    TCP_S: tcp.b6r7.b2
