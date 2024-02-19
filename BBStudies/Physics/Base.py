@@ -23,6 +23,52 @@ def vecNorm(vec):
     return np.sqrt(vec[0]**2 + vec[1]**2)
 ##############################################################
 
+##############################################################
+def resample(x,y,num_points):
+    # compute the distances, ds, between points
+    dx, dy = x[+1:]-x[:-1],  y[+1:]-y[:-1]
+    ds = np.array((0, *np.sqrt(dx*dx+dy*dy)))
+
+    # compute the total distance from the 1st point, measured on the curve
+    s = np.cumsum(ds)
+
+    # interpolate using 200 point
+    xinter = np.interp(np.linspace(0,s[-1], num_points), s, x)
+    yinter = np.interp(np.linspace(0,s[-1], num_points), s, y)
+    return xinter, yinter
+##############################################################
+
+
+##############################################################
+def smooth_step_function(x, step_location, step_height, step_width):
+    return step_height / (1 + np.exp(-2 * (x - step_location) / step_width))
+
+def radial_steps(r_min=1,r_max=10,num_steps = 10,smooth_factor = 1,num_points = 1000):
+
+    step_size  = (r_max-r_min)/(num_steps-1)
+    step_width = num_points/200*smooth_factor 
+
+    x = np.arange(num_points)
+    step_locations = np.linspace(np.min(x), np.max(x), num_steps+1)[1:-1]
+
+    # Apply steps at specified locations
+    y = r_min + np.zeros(len(x))
+    for location in step_locations:
+        y += smooth_step_function(x, location, step_size, step_width)
+
+    return y
+
+def serpentine_path(r_min=1,r_max=10,theta_min=0,theta_max=np.pi/2,r_offset=0,num_steps = 10,smooth_factor = 1,num_points = 1000):
+    r       = radial_steps(r_min=r_min-r_offset,r_max=r_max-r_offset,num_steps=num_steps,smooth_factor=smooth_factor,num_points=num_points)
+    A       = (theta_max-theta_min)/2
+    y0      = (theta_max+theta_min)/2
+    theta   = A * np.cos(0.5*np.linspace(0, num_steps*2*np.pi, len(r))) + y0
+
+    x = (r) * np.cos(theta) + r_offset*np.cos(np.pi/4)
+    y = (r) * np.sin(theta) + r_offset*np.sin(np.pi/4)
+    return x ,y 
+##############################################################
+
 
 ##############################################################
 def phys2norm(x,px,alpha=None,beta=None,SVD=False):

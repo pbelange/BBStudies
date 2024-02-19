@@ -475,14 +475,22 @@ class Excursion_Buffer():
         self.data['Qzeta'].append(Qzeta)
         #-------------------------
 
-
 # naff_Buffer:
 #===================================================
 class naff_Buffer():
     def __init__(self,monitor=None):
         self.monitor = monitor
         self.call_ID = None
-        
+
+
+        # To be injected manually!
+        #=========================
+        self.W_matrix       = None
+        self.particle_on_co = None
+        self.nemitt_x       = None
+        self.nemitt_y       = None
+        self.nemitt_zeta    = None
+        #=========================
         
         self.data = {}
         self.data['Chunk ID'] = []
@@ -521,6 +529,8 @@ class naff_Buffer():
                     dct[key] = [[(c.real, c.imag) for c in row] for row in np.vstack(value).tolist()]
                 else:
                     dct[key] = np.vstack(value).tolist()
+            else:
+                pass
 
         return dct
     
@@ -555,22 +565,36 @@ class naff_Buffer():
         py   = self.monitor.py
         zeta = self.monitor.zeta
         pzeta = np.divide(self.monitor.ptau,self.monitor.beta0, np.zeros_like(self.monitor.ptau) + np.nan,where=self.monitor.beta0!=0)
-         
-        # Extracting 10 harmonics
+
+
+        # Computing normalized coordinates
         #--------------------------
-        n_harm = 10
+        XX_n   = [W_phys2norm(_x,_px,_y,_py,_zeta,_pzeta,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co) for (_x,_px,_y,_py,_zeta,_pzeta) in zip(x,px,y,py,zeta,pzeta)]
+        XX_sig = [norm2sigma(_XX_n[0,:],_XX_n[1,:],_XX_n[2,:],_XX_n[3,:],_XX_n[4,:],_XX_n[5,:],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co) for _XX_n in XX_n]
+
+        x_sig       = [_XX_sig[0,:] for _XX_sig in XX_sig]
+        px_sig      = [_XX_sig[1,:] for _XX_sig in XX_sig]
+        y_sig       = [_XX_sig[2,:] for _XX_sig in XX_sig]
+        py_sig      = [_XX_sig[3,:] for _XX_sig in XX_sig]
+        zeta_sig    = [_XX_sig[4,:] for _XX_sig in XX_sig]
+        pzeta_sig   = [_XX_sig[5,:] for _XX_sig in XX_sig]
+
+
+        # Extracting 30 harmonics
+        #--------------------------
+        n_harm = 100
         window_order = 4
         window_type  = 'hann' 
         try:
-            Ax,Qx  = nafflib.multiparticle_harmonics(x, px, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
-            Ay,Qy  = nafflib.multiparticle_harmonics(y, py, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
-            Azeta,Qzeta  = nafflib.multiparticle_harmonics(zeta, pzeta, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
+            Ax,Qx       = nafflib.multiparticle_harmonics(x_sig,px_sig, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
+            Ay,Qy       = nafflib.multiparticle_harmonics(y_sig,py_sig, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
+            Azeta,Qzeta = nafflib.multiparticle_harmonics(zeta_sig,pzeta_sig, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
         except Exception as error:
             print("An exception occurred:", type(error).__name__, "-", error) # An exception occurred
             n_part = len(x)
-            Ax,Qx = n_part * [n_harm*[np.nan+ 1j*np.nan]],n_part * [n_harm*[np.nan]]
-            Ay,Qy =  n_part * [n_harm*[np.nan+ 1j*np.nan]],n_part * [n_harm*[np.nan]]
-            Azeta,Qzeta =  n_part * [n_harm*[np.nan+ 1j*np.nan]],n_part * [n_harm*[np.nan]]
+            Ax,Qx = np.array(n_part * [n_harm*[np.nan+ 1j*np.nan]]),np.array(n_part * [n_harm*[np.nan]])
+            Ay,Qy =  np.array(n_part * [n_harm*[np.nan+ 1j*np.nan]]),np.array(n_part * [n_harm*[np.nan]])
+            Azeta,Qzeta =  np.array(n_part * [n_harm*[np.nan+ 1j*np.nan]]),np.array(n_part * [n_harm*[np.nan]])
 
 
         # Appending to data
@@ -607,16 +631,16 @@ def split_in_chunks(turns,n_chunks = None,main_chunk = None):
 
 
 class coordinate_table():
-    def __init__(self,_df,W_matrix=None,particle_on_co=None,nemit_x=None,nemit_y=None,nemit_zeta=None):
+    def __init__(self,_df,W_matrix=None,particle_on_co=None,nemitt_x=None,nemitt_y=None,nemitt_zeta=None):
         self._df     = _df
         self._df_n   = None
         self._df_sig = None
 
         self.W_matrix = W_matrix
         self.particle_on_co = particle_on_co
-        self.nemitt_x = nemit_x
-        self.nemitt_y = nemit_y
-        self.nemitt_zeta = nemit_zeta
+        self.nemitt_x = nemitt_x
+        self.nemitt_y = nemitt_y
+        self.nemitt_zeta = nemitt_zeta
 
     @property
     def df(self):
@@ -745,9 +769,11 @@ class Tracking_Interface():
             _twiss = line.twiss(method=method.lower())
             self.W_matrix       = _twiss.W_matrix[0]
             self.particle_on_co = _twiss.particle_on_co 
+            self.tune_on_co     = [_twiss.mux[-1], _twiss.muy[-1], _twiss.muzeta[-1]]
         else:
             self.W_matrix       = None
             self.particle_on_co = None
+            self.tune_on_co     = None
         #--------------------------
 
 
@@ -803,7 +829,8 @@ class Tracking_Interface():
                     'method'          : self.method,
                     'monitor_at'      : self.monitor_at,
                     'W_matrix'        : self.W_matrix,
-                    'particle_on_co'  : self.particle_on_co.to_dict()}
+                    'particle_on_co'  : self.particle_on_co.to_dict(),
+                    'tune_on_co'      : self.tune_on_co}
         return metadata
     
 
@@ -839,7 +866,7 @@ class Tracking_Interface():
         #-------------------------
         if self.parquet_data == '_df':
             self._df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles)
-            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
             self.start_at_turn = self.df.turn.min()
             self.stop_at_turn  = self.df.turn.max()
             self.n_turns       = self.stop_at_turn - self.start_at_turn
@@ -851,7 +878,7 @@ class Tracking_Interface():
 
         elif (self.parquet_data == '_checkpoint'):
             self._checkpoint = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles)
-            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
             self.start_at_turn = self.checkpoint.turn.min()
             self.stop_at_turn  = self.checkpoint.turn.max()
             self.n_turns       = self.stop_at_turn - self.start_at_turn
@@ -988,7 +1015,7 @@ class Tracking_Interface():
                 self._coord = self.df.groupby('turn').get_group(0).reset_index(drop=True)
             self._coord = self._coord[keep_col]
         if type(self._coord) is not coordinate_table:
-            self._coord = coordinate_table(self._coord,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+            self._coord = coordinate_table(self._coord,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
         return self._coord.df
     
     @property
@@ -1010,7 +1037,7 @@ class Tracking_Interface():
     @property
     def checkpoint(self):
         if type(self._checkpoint) is not coordinate_table:
-            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
         return self._checkpoint.df
     
     @property
@@ -1044,7 +1071,7 @@ class Tracking_Interface():
             # # Adding element name
             # if 'at_element' in self.extract_columns:
             #     self._df.loc[:,'at_element'] = self._df.at_element.apply(lambda ee_idx: line.element_names[ee_idx])
-            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
         return self._df.df
 
     @property
