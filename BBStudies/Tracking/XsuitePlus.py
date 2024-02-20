@@ -212,7 +212,12 @@ class NpEncoder(json.JSONEncoder):
 
 
 #========================================
-def import_parquet(data_path,partition_name=None,partition_ID=None,variables = None,start_at_turn = None,stop_at_turn = None,handpick_particles = None):
+    
+def parse_parquet_complex(A_vec):
+    return [_A.view(dtype=np.complex128)[0] for _A in A_vec]
+
+
+def import_parquet(data_path,partition_name=None,partition_ID=None,variables = None,start_at_turn = None,stop_at_turn = None,handpick_particles = None,complex_columns = None):
 
     # -- DASK ----
     import dask.dataframe as dd
@@ -248,16 +253,20 @@ def import_parquet(data_path,partition_name=None,partition_ID=None,variables = N
     #-----------------------------
     if partition_ID is not None:
         assert (partition_name is None) == (partition_ID is None), 'partition_name and partition_ID must be both None or both not None'
-        _partition = dd.read_parquet(data_path + f'/{partition_name}={partition_ID}',columns=variables,filters = filters,parquet_file_extension = '.parquet')
+        _look_for = data_path + f'/{partition_name}={partition_ID}'
+        if '*' in _look_for:
+            _look_for = sorted(list(Path(data_path).rglob(f'{partition_name}={partition_ID}/*.parquet')))
     else:
-        _partition = dd.read_parquet(data_path,columns=variables,filters = filters,parquet_file_extension = '.parquet')
+        _look_for = data_path 
+    
+    _partition = dd.read_parquet( _look_for,columns=variables,filters = filters,parquet_file_extension = '.parquet')
     #-----------------------------
 
     # Cleaning up the dataframe
     #-----------------------------
     df        = _partition.compute()
     if partition_name is not None:
-        df = df.set_index(partition_name).reset_index(drop=True)
+        df = df.set_index(partition_name).reset_index(drop=False).rename(columns={partition_name:'Partition'})
     else:
         df = df.reset_index(drop=True)
     #-----------------------------
@@ -269,6 +278,13 @@ def import_parquet(data_path,partition_name=None,partition_ID=None,variables = N
     gc.collect()
     #-----------------------------
 
+    # Parsing complex columns
+    #-----------------------------
+    if complex_columns is not None:
+        for col in complex_columns:
+            df[col] = df[col].apply(parse_parquet_complex)
+    #-----------------------------
+            
     return df
 #========================================
 
@@ -835,16 +851,17 @@ class Tracking_Interface():
     
 
     @classmethod
-    def from_parquet(cls,data_path,partition_name=None,partition_ID=None,variables = None,start_at_turn = None,stop_at_turn = None,handpick_particles = None):
+    def from_parquet(cls,data_path,partition_name=None,partition_ID=None,variables = None,start_at_turn = None,stop_at_turn = None,handpick_particles = None,complex_columns = None):
         self = cls()
         
         # Extracting metadata
         #-------------------------
         if partition_ID is not None:
-            meta_path = f'{data_path}/{partition_name}={partition_ID}/meta_data.json'
+            _look_for = f'{partition_name}={partition_ID}/*.json'
         else:
-            meta_path = list(Path(data_path).rglob('*.json'))[0]
-
+            _look_for = '*.json'
+        
+        meta_path = sorted(list(Path(data_path).rglob(_look_for)))[0]
         with open(meta_path , "r") as file: 
             metadata = json.load(file)
         #-------------------------
@@ -865,20 +882,22 @@ class Tracking_Interface():
         # Importing main dataframe
         #-------------------------
         if self.parquet_data == '_df':
-            self._df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles)
-            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
+            self._df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles, complex_columns =complex_columns)
+            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+
             self.start_at_turn = self.df.turn.min()
             self.stop_at_turn  = self.df.turn.max()
             self.n_turns       = self.stop_at_turn - self.start_at_turn
         elif (self.parquet_data == '_data') or (self.parquet_data == '_calculations'):
-            self._data = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles)
+            self._data = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles,complex_columns =complex_columns)
             self.start_at_turn = self._data.start_at_turn.min()
             self.stop_at_turn  = self._data.stop_at_turn.max()
             self.n_turns       = self.stop_at_turn - self.start_at_turn
 
         elif (self.parquet_data == '_checkpoint'):
-            self._checkpoint = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles)
-            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
+            self._checkpoint = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles,complex_columns =complex_columns)
+            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+
             self.start_at_turn = self.checkpoint.turn.min()
             self.stop_at_turn  = self.checkpoint.turn.max()
             self.n_turns       = self.stop_at_turn - self.start_at_turn
