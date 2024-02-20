@@ -883,7 +883,7 @@ class Tracking_Interface():
         #-------------------------
         if self.parquet_data == '_df':
             self._df = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles, complex_columns =complex_columns)
-            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+            self._df = coordinate_table(self._df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
 
             self.start_at_turn = self.df.turn.min()
             self.stop_at_turn  = self.df.turn.max()
@@ -896,7 +896,7 @@ class Tracking_Interface():
 
         elif (self.parquet_data == '_checkpoint'):
             self._checkpoint = import_parquet(data_path,partition_name=partition_name,partition_ID=partition_ID,variables = variables,start_at_turn=start_at_turn,stop_at_turn=stop_at_turn,handpick_particles = handpick_particles,complex_columns =complex_columns)
-            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemit_x=self.nemitt_x,nemit_y=self.nemitt_y,nemit_zeta=self.nemitt_zeta)
+            self._checkpoint = coordinate_table(self._checkpoint,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
 
             self.start_at_turn = self.checkpoint.turn.min()
             self.stop_at_turn  = self.checkpoint.turn.max()
