@@ -1,6 +1,4 @@
-                                              
-
-# installing conda
+nstalling conda
 mkdir ./Executables
 if [ "$(uname)" == "Darwin" ]; then
     # Do something under Mac OS X platform
@@ -47,8 +45,8 @@ pip install ipympl
 pip install ruamel.yaml
 pip install rich
 pip install lfm
-pip install pynaff
-pip install NAFFlib
+pip install nafflib
+pip install pytest
 
 # Adding the jupyter kernel to the list of kernels
 python -m ipykernel install --user --name py-BB --display-name "py-BB"

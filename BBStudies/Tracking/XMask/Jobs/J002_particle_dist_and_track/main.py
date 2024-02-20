@@ -235,6 +235,15 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
         # Data Buffer Computation
         #---------------
         if config['tracking']['data_path'] is not None:
+            if data_buffer.W_matrix is None:
+                # To be injected manually!
+                #=========================
+                data_buffer.W_matrix       = tracked.W_matrix       
+                data_buffer.particle_on_co = tracked.particle_on_co 
+                data_buffer.nemitt_x       = tracked.nemitt_x       
+                data_buffer.nemitt_y       = tracked.nemitt_y       
+                data_buffer.nemitt_zeta    = tracked.nemitt_zeta    
+                #=========================
             data_buffer.process(monitor=main_monitor)
         if config['tracking']['checkpoint_path'] is not None:
             checkpoint_buffer.process(monitor=main_monitor)
