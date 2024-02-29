@@ -18,7 +18,6 @@ import xpart as xp
 
 
 
-import BBStudies.Analysis.Footprint as footp
 import BBStudies.Tracking.Progress as pbar
 import BBStudies.Physics.Constants as cst
 

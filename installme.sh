@@ -107,4 +107,5 @@ wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/toolkit/macro.m
 wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/blob/2023/toolkit/slice.madx -P Machines/Toolkit/
 
 # Downloading optics
-rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/2021_V6/PROTON/opticsfile.* /afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/2021_V6/PROTON/README" ./Machines/Optics/
+rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/opticsfile.*" ./Machines/Optics/
+rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/README" ./Machines/Optics/
