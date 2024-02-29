@@ -582,7 +582,7 @@ class naff_Buffer():
 
         # Extracting 30 harmonics
         #--------------------------
-        n_harm = 100
+        n_harm = 30
         window_order = 4
         window_type  = 'hann' 
         try:

@@ -1,10 +1,10 @@
 Executables/**
-*.ipynb_checkpoint*
-*__pycache*
+.ipynb_checkpoints/
+__pycache__/
 *.c
 *.o
 *.json
-*.DS_Store
+.DS_Store
 *.html
 *.pkl
 *.parquet
@@ -13,59 +13,12 @@ Executables/**
 *.pyd
 *.egg-info/
 
-# Include filling patterns
+# Only keep filling schemes from Machines
+Machines/**
+!Machines/FillingSchemes/
 !Machines/FillingSchemes/*.json
 
-# Remove sequences
-Machines/Sequences/**
-
-# Keep toolkit?
-Machines/Toolkit/**
-
-# Keep optics?
-Machines/Optics/**
-
-
-
-# SHOULD ALL BE DELETED SOON
-#==========================================
-# Mask management
-Machines/Checks/**
-Machines/Mask/**
-!Machines/Mask/Tracking_tools/**
-!Machines/Mask/000_mask_template_rich.py
-!Machines/Mask/000_mask_template.py
-!Machines/Mask/000_Run_mask.py
-!Machines/Mask/bbcw.py
-!Machines/Mask/config.yaml
-!Machines/Mask/optics_specific_tools.py
-!Machines/Mask/readme.md
-!Machines/Mask/run_pymask.py
-
-
-Machines/Sequence/**
-Machines/Optics/**
-Machines/Surveys/**
-
-
-# Machines/XMask/**
-# !Machines/XMask/**/*.py
-# !Machines/XMask/**/*.ipynb
-# !Machines/XMask/**/*.yaml
-# !Machines/XMask/**/*.md
-
-
-# Machines/XMask/Jobs/000_build_collider_from_mad/**
-# !Machines/XMask/Jobs/000_build_collider_from_mad/*.py
-# !Machines/XMask/Jobs/000_build_collider_from_mad/*.yaml
-
-# !Machines/XMask/Jobs/000_build_collider_from_mad/*.py
-# !Machines/XMask/Jobs/000_build_collider_from_mad/*.yaml
-# !Machines/XMask/Jobs/000_build_collider_from_mad/*.md
-
-
-# !Machines/XMask/*.yaml
-# !Machines/XMask/*.yaml
-# !Machines/XMask/*.py
-# !Machines/XMask/*.md
-# !Machines/XMask/*.ipynb
+# Ignore everything in the studies directory
+studies/*
+# Except .gitkeep files
+!studies/.gitkeep
