@@ -13,6 +13,10 @@ __pycache__/
 *.pyd
 *.egg-info/
 
+# Keeping example colliders
+!examples/run_xmask_jobs/colliders/*.json
+
+
 # Only keep filling schemes from Machines
 Machines/**
 !Machines/FillingSchemes/
