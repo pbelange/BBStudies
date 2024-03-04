@@ -13,8 +13,8 @@ import xtrack as xt
 import xmask as xm
 
 import BBStudies
-from  BBStudies.Tracking.XMask.Jobs.J001_configure_collider.job_specific_tools import generate_orbit_correction_setup,luminosity_leveling, luminosity_leveling_ip1_5, compute_PU
-import BBStudies.Tracking.XMask.Utils as xutils
+from  BBStudies.Tracking.Jobs.J001_configure_collider.job_specific_tools import generate_orbit_correction_setup,luminosity_leveling, luminosity_leveling_ip1_5, compute_PU
+import BBStudies.Tracking.Utils as xutils
 
 
 

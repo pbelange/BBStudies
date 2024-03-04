@@ -15,7 +15,7 @@ import xobjects as xo
 
 # BBStudies
 import BBStudies.Tracking.XsuitePlus as xPlus
-import BBStudies.Tracking.XMask.Utils as xutils
+import BBStudies.Tracking.Utils as xutils
 import BBStudies.Tracking.Progress as pbar
 import BBStudies.Physics.Base as phys
 

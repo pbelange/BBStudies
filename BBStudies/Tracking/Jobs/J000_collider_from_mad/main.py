@@ -13,8 +13,8 @@ import yaml
 from pathlib import Path
 
 # Import user-defined optics-specific tools
-import BBStudies.Tracking.XMask.Jobs.J000_collider_from_mad.job_specific_tools as ost
-import BBStudies.Tracking.XMask.Utils as xutils
+import BBStudies.Tracking.Jobs.J000_collider_from_mad.job_specific_tools as ost
+import BBStudies.Tracking.Utils as xutils
 
 
 

@@ -23,7 +23,7 @@ import xpart as xp
 # BBStudies
 
 import BBStudies.Tracking.XsuitePlus as xPlus
-import BBStudies.Tracking.XMask.Utils as xutils
+import BBStudies.Tracking.Utils as xutils
 import BBStudies.Physics.Constants as cst
 import BBStudies.Plotting.Bokeh.Tools as bktools
 import BBStudies.Plotting.Bokeh.Presets as bkpresets
