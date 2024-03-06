@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import traceback
 import gc
 
 
@@ -15,11 +16,10 @@ import xobjects as xo
 
 # BBStudies
 import BBStudies.Tracking.XsuitePlus as xPlus
+import BBStudies.Tracking.Buffers as xBuff
 import BBStudies.Tracking.Utils as xutils
 import BBStudies.Tracking.Progress as pbar
 import BBStudies.Physics.Base as phys
-
-
 
 
 
@@ -38,7 +38,6 @@ def load_collider(collider_path = '../001_configure_collider/zfruits/collider_00
         context = xo.ContextCpu(omp_num_threads='auto')
     elif user_context == 'GPU':
         context = xo.ContextCupy(device = device_id)
-    collider.build_trackers(_context=context)
     #--------------------------------------
 
     return collider,context
@@ -50,7 +49,8 @@ def load_collider(collider_path = '../001_configure_collider/zfruits/collider_00
 # ==================================================================================================
 def generate_particles(from_path,line,nemitt_x = None,nemitt_y = None,_context = None):
     # Loading normalized coordinates
-    coord_df = xPlus.import_parquet(from_path)
+    # coord_df = xutils.import_parquet(from_path)
+    coord_df = pd.read_parquet(from_path)
     
     # Generating xsuite particles
     particles = xp.build_particles( line        = line,
@@ -68,74 +68,113 @@ def generate_particles(from_path,line,nemitt_x = None,nemitt_y = None,_context =
 
 
 # ==================================================================================================
-# --- Functions to initialize monitor
+# --- Cleaning monitor
 # ==================================================================================================
-def initialize_monitor(context = None,num_particles = 0,start_at_turn=0,nturns = 1):
-        return xt.ParticlesMonitor( _context       = context,
-                                    num_particles = num_particles,
-                                    start_at_turn = start_at_turn, 
-                                    stop_at_turn  = start_at_turn + nturns)
+
+# Adding reset method to monitors:
+#==============================
+def reset_monitor(self,start_at_turn = None,stop_at_turn = None):
+    if start_at_turn is not None:
+        self.start_at_turn = start_at_turn
+    if stop_at_turn is not None:
+        self.stop_at_turn = stop_at_turn
+    
+    with self.data._bypass_linked_vars():
+            for tt, nn in self._ParticlesClass.per_particle_vars:
+                getattr(self.data, nn)[:] = 0
+
+xt.ParticlesMonitor.reset = reset_monitor
+#==============================
 
 
+# Adding to_pandas method to monitors:
+#==============================
+def pandas_monitor(self):
+    
+    extract_columns = ['at_turn','particle_id','x','px','y','py','zeta','pzeta','state']
+
+    _df_tbt = self.data.to_pandas()
+
+    _df_tbt.insert(list(_df_tbt.columns).index('zeta'),'pzeta',_df_tbt['ptau']/_df_tbt['beta0'])
+    _df_tbt = _df_tbt[extract_columns].rename(columns={"at_turn": "turn",'particle_id':'particle'})
+
+    return _df_tbt
+xt.ParticlesMonitor.to_pandas = pandas_monitor
+#==============================
 
 # ==================================================================================================
 # --- Main function
 # ==================================================================================================
 def particle_dist_and_track(config = None,config_path = 'config.yaml'):
 
-
     # Loading config
     #==============================
     if config is None:
         config = xutils.read_YAML(config_path)
+
+    sequence   = config['tracking']['collider']['sequence']
+    method     = config['tracking']['collider']['method']
+    num_turns  = int(config['tracking']['num_turns'])
+    num_particles = len(pd.read_parquet(config['tracking']['particles']['path']))
+    ee_at_dict = config['elements'][sequence]
+
+    chunks   = xPlus.split_in_chunks(num_turns, main_chunk  = config['tracking']['size_chunks'],
+                                                n_chunks    = config['tracking']['num_chunks'])
     #==============================
 
 
     # Preparing output folder
     #==============================
-    turn_b_turn_path    = config['tracking']['turn_b_turn_path']
-    data_path           = config['tracking']['data_path']
-    checkpoint_path     = config['tracking']['checkpoint_path']
-    particles_path      = config['tracking']['particles_path']
-
-    for _path in [turn_b_turn_path,data_path,checkpoint_path]:
+    for _path in [config['analysis']['path']]:
         if _path is not None:
             xutils.mkdir(_path) 
     #==============================
 
 
-    # Loading collider
+
+    # Preparing collider
     #==============================
     print('LOADING COLLIDER')
-    collider,context = load_collider(   collider_path = config['tracking']['collider_path'],
-                                        user_context  = config['tracking']['user_context'],
-                                        device_id     = config['tracking']['device_id'])
-    #==============================
-
-
-    # Parsing config
-    #==============================
-    sequence = config['tracking']['sequence']
-    line     = collider[sequence]
-    n_turns  = int(config['tracking']['n_turns'])
-    monitor_at_dict = config['elements'][sequence]
-    monitor_at      = config['tracking']['monitor_at']
-    if monitor_at in monitor_at_dict.keys():
-        monitor_at = monitor_at_dict[monitor_at]
-    #==============================
+    collider,context = load_collider(   collider_path = config['tracking']['collider']['path'],
+                                        user_context  = config['tracking']['context']['type'],
+                                        device_id     = config['tracking']['context']['device_id'])
 
     # Cycling line at_element
+    line    = collider[sequence]
+    cycle_at= config['tracking']['collider']['cycle_at']
+    if line.element_names[0] != ee_at_dict[cycle_at]:
+        print('CYCLING LINE') 
+        line.cycle(name_first_element=ee_at_dict[cycle_at], inplace=True)
+
+
+    # Installing monitors
+    print('INSTALLING MONITORS') 
+    monitors     = {}
+    monitor_list = config['tracking']['collider']['monitor_at']
+    if not isinstance(monitor_list,list):
+        monitor_list = [monitor_list]
+    for monitor_at in monitor_list:
+
+        monitors[monitor_at] = {}
+        monitors[monitor_at]['main'] = xt.ParticlesMonitor( _context      = context,
+                                                            num_particles = num_particles,
+                                                            start_at_turn = 0, 
+                                                            stop_at_turn  = int(np.max(chunks)))
+
+        ee_name = ee_at_dict[monitor_at]
+        line.insert_element(index=ee_name, element=monitors[monitor_at]['main'], name=ee_name + '_monitor')
+    line.build_tracker(_context=context)
     #==============================
-    if line.element_names[0] != monitor_at:
-        line.cycle(name_first_element=monitor_at, inplace=True)
-    #==============================       
+
+
+
 
 
     # Parsing emittance
     #==============================
     # Extracting emittance from previous config
     config_J001 = collider.metadata['config_J001']
-    
+
     nemitt_x,nemitt_y = (config_J001['config_collider']['config_beambeam'][f'nemitt_{plane}'] for plane in ['x','y'])
     sigma_z           = config_J001['config_collider']['config_beambeam'][f'sigma_z']
 
@@ -146,144 +185,209 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
 
     # Generating particles
     #==============================
-    particles = generate_particles(from_path    = particles_path,
+    particles = generate_particles(from_path    = config['tracking']['particles']['path'],
                                     line        = line,
                                     nemitt_x    = nemitt_x,
                                     nemitt_y    = nemitt_y,
                                     _context    = context) 
-    n_parts  = len(particles.particle_id)
-            
-    # Handpicked for lighter t-by-t data
-    if config['tracking']['handpick_every'] is not None:
-        handpick_particles = particles.particle_id[::config['tracking']['handpick_every']]
-    else:
-        handpick_particles = None    
     #==============================
 
 
 
-    
-    # Finding number of chunks:
+
+    # Custom monitors and pcsections
     #==============================
-    n_chunks   = config['tracking']['n_chunks']
-    main_chunk = config['tracking']['chunk_size']
-    if n_chunks:
-        n_chunks = int(n_chunks)
-    if main_chunk:
-        main_chunk = int(main_chunk)
-    
+    pcsections = {}
+    buffers    = {}
+    _twiss = line.twiss(method=method.lower())
 
-    chunks   = xPlus.split_in_chunks(n_turns,n_chunks=n_chunks,main_chunk=main_chunk)
+    for monitor_at in monitors.keys():
+
+        # CPU_monitor to only extract once from GPU
+        monitors[monitor_at]['cpu'] = xBuff.CPU_monitor()
+
+        # NAFF storage for long N values
+        if config['analysis']['naff']['active']:
+            monitors[monitor_at]['storage'] = xBuff.storage_monitor(num_particles,config['analysis']['naff']['num_turns'])
+
+        # pcsections
+        ee_name = ee_at_dict[monitor_at]
+        ee_idx = _twiss.name.tolist().index(ee_name)
+        _particle_on_co = _twiss.particle_on_co.copy()
+        line.track(_particle_on_co , ele_start=0, ele_stop=ee_idx)
+        pcsections[monitor_at] = xPlus.Poincare_Section(name           = monitor_at,
+                                                        ee_name        = ee_name,
+                                                        s              = _twiss.s[ee_idx],
+                                                        W_matrix       = _twiss.W_matrix[ee_idx],
+                                                        particle_on_co = _particle_on_co,
+                                                        tune_on_co     = [_twiss.mux[-1], _twiss.muy[-1], _twiss.muzeta[-1]],
+                                                        nemitt_x       = nemitt_x,       
+                                                        nemitt_y       = nemitt_y,       
+                                                        nemitt_zeta    = nemitt_zeta)
+        
+        # Buffers
+        buffers[monitor_at] = {'checkpoints':None,'excursion':None,'naff':None}
+        if config['analysis']['checkpoints']['active']:
+            buffers[monitor_at]['checkpoints'] = xBuff.Checkpoint_Buffer()
+        if config['analysis']['excursion']['active']:
+            buffers[monitor_at]['excursion'] = xBuff.Excursion_Buffer()
+        if config['analysis']['naff']['active']:
+            buffers[monitor_at]['naff'] = xBuff.NAFF_Buffer()
+            buffers[monitor_at]['naff'].n_harm       = config['analysis']['naff']['num_harmonics']
+            buffers[monitor_at]['naff'].window_order = config['analysis']['naff']['window_order']
+            buffers[monitor_at]['naff'].window_type  = config['analysis']['naff']['window_type']
+            buffers[monitor_at]['naff'].multiprocesses = config['analysis']['naff']['multiprocesses']
+
+            # To be injected manually!
+            #=========================
+            buffers[monitor_at]['naff'].W_matrix       = pcsections[monitor_at].W_matrix
+            buffers[monitor_at]['naff'].particle_on_co = pcsections[monitor_at].particle_on_co
+            buffers[monitor_at]['naff'].nemitt_x       = pcsections[monitor_at].nemitt_x       
+            buffers[monitor_at]['naff'].nemitt_y       = pcsections[monitor_at].nemitt_y       
+            buffers[monitor_at]['naff'].nemitt_zeta    = pcsections[monitor_at].nemitt_zeta    
+            #=========================
     #==============================
-
-
-    
-
-    # Creating data buffer and checkpoint if needed
-    #==============================
-    data_buffer = None
-    if config['tracking']['data_path'] is not None:
-        data_buffer = xPlus.naff_Buffer()
-
-    checkpoint_buffer = None
-    if config['tracking']['checkpoint_path'] is not None:
-        checkpoint_buffer = xPlus.Checkpoint_Buffer()
-    #==============================
+        
 
 
     # Tracking
     #==============================
     print('START TRACKING...')
-    
-    ID_length    = len(str(len(chunks)))
+    # Tracking
+    #--------------------------------------------
 
     PBar = pbar.ProgressBar(message='___  Tracking  ___',color='blue',n_steps=len(chunks),max_visible=3)
+    interface = xPlus.Tracking_Interface(   line            = line,
+                                            method          = method,
+                                            cycle_at        = cycle_at,
+                                            context         = context,
+                                            config          = config,
+
+                                            num_particles   = num_particles,
+                                            num_turns       = num_turns,
+
+                                            nemitt_x        = nemitt_x,       
+                                            nemitt_y        = nemitt_y,       
+                                            nemitt_zeta     = nemitt_zeta,
+                                            sigma_z         = sigma_z,
+
+                                            poincare        = list(pcsections.values()),
+                                            
+                                            PBar            = PBar,
+                                            progress_divide = 100,)
+
+    # Saving Interface data
+    #--------------------------
+    interface.export_metadata(  path = config['analysis']['path'],
+                                collider_name    = config['tracking']['collider']['name'],
+                                distribution_name= config['tracking']['particles']['name'])
+
     PBar.start()
-    for ID,chunk in enumerate(chunks):
+    try:
+        ID_length = len(str(len(chunks)))
+        for ID,chunk in enumerate(chunks):
 
-        # Updating progress bar
-        PBar.add_subtask(ID,message = f'CHUNK {str(ID).zfill(ID_length)}/{str(len(chunks)-1).zfill(ID_length)}',color = 'red',n_steps = chunk,level=2)
+            # Updating progress bar
+            PBar.add_subtask(ID,message = f'CHUNK {str(ID).zfill(ID_length)}/{str(len(chunks)-1).zfill(ID_length)}',color = 'red',n_steps = chunk,level=2)
 
-        # Setting monitor to make sure we can overwrite it
-        #--------------------------------------------
-        last_turn    = context.nparray_from_context_array(particles.at_turn).max()
-        main_monitor = initialize_monitor(context       = context,
-                                          num_particles = len(particles.particle_id),
-                                          start_at_turn = last_turn,
-                                          nturns        = chunk)
-        #--------------------------------------------
+            # Resetting monitors
+            #--------------------------------------------
+            last_turn    = context.nparray_from_context_array(particles.at_turn).max()
+
+            for key in monitors.keys():
+                monitors[key]['main'].reset(start_at_turn = last_turn, 
+                                            stop_at_turn  = last_turn + chunk)
+            #--------------------------------------------
+
+            # Tracking
+            #--------------------------------------------
+            interface.run_tracking(line,particles,num_turns = chunk)
+            #--------------------------------------------
+            
+            # Processing all buffers
+            for key in monitors.keys():
+                new_data = []
+
+                _monitor_main = monitors[key]['main']
+                _monitor_cpu = monitors[key]['cpu']
+                _monitor_storage = monitors[key]['storage']
+
+                _buffer_checkpoints = buffers[key]['checkpoints']
+                _buffer_excursion = buffers[key]['excursion']
+                _buffer_naff = buffers[key]['naff'] 
 
 
-        # Tracking
-        #--------------------------------------------
-        tracked = xPlus.Tracking_Interface( line      = line,
-                                            particles = particles,
-                                            _context  = context,
-                                            n_turns   = chunk,
-                                            monitor   = main_monitor,
-                                            monitor_at= monitor_at,
-                                            nemitt_x  = nemitt_x,
-                                            nemitt_y  = nemitt_y,
-                                            nemitt_zeta = nemitt_zeta,
-                                            sigma_z     = sigma_z,
-                                            Pbar        = PBar,
-                                            progress_divide = 100,
-                                            config          = config)
-        #--------------------------------------------
+                # Making sure the data is on cpu:
+                _monitor_cpu.process(monitor=_monitor_main)
 
+                # Saving Checkpoint if needed
+                #--------------------------
+                if _buffer_checkpoints is not None:
+                    _buffer_checkpoints.process(monitor=_monitor_cpu)
+                    new_data.append('checkpoints')
 
-        # Data Buffer Computation
-        #---------------
-        if config['tracking']['data_path'] is not None:
-            if data_buffer.W_matrix is None:
-                # To be injected manually!
-                #=========================
-                data_buffer.W_matrix       = tracked.W_matrix       
-                data_buffer.particle_on_co = tracked.particle_on_co 
-                data_buffer.nemitt_x       = tracked.nemitt_x       
-                data_buffer.nemitt_y       = tracked.nemitt_y       
-                data_buffer.nemitt_zeta    = tracked.nemitt_zeta    
-                #=========================
-            data_buffer.process(monitor=main_monitor)
-        if config['tracking']['checkpoint_path'] is not None:
-            checkpoint_buffer.process(monitor=main_monitor)
-        #---------------
+                # Saving Excursion if needed
+                #--------------------------
+                if _buffer_excursion is not None:
+                    _buffer_excursion.process(monitor=_monitor_cpu)
+                    new_data.append('excursion')
 
-        # Saving Chunk if needed
+                # NAFF computations
+                #--------------------------
+                if _buffer_naff is not None:
+                    # Storing for NAFF
+                    _monitor_storage.process(monitor=_monitor_cpu)
+
+                    # NAFF if window length is reached
+                    naff_iterations = 0 if _buffer_naff.call_ID is None else _buffer_naff.call_ID + 1
+                    if _monitor_storage.stop_at_turn >= (naff_iterations+1)*config['analysis']['naff']['num_turns']:
+
+                        # Processing and cleaning storage for next iteration
+                        _buffer_naff.process(monitor=_monitor_storage)
+                        _monitor_storage.clean()
+                        new_data.append('naff')
+                        
+                #--------------------------
+                        
+                # TURN-BY-TURN
+                #--------------------------
+                if config['analysis']['turn_by_turn']['active']:
+                    new_data.append('tbt')
+            
+
+                # Writing to parquet
+                #--------------------------
+                if len(new_data)>0:
+                    for data_key in new_data:
+                        if data_key == 'tbt':
+                            _tbt = _monitor_main.to_pandas()
+                            _tbt.insert(0,'chunk',ID)
+                            pcsections[key].data[data_key] = _tbt
+                        else:
+                            pcsections[key].data[data_key] = buffers[key][data_key].to_pandas()
+                            buffers[key][data_key].clean()
+                    
+                    pcsections[key].to_parquet(path          = config['analysis']['path'],
+                                            collider_name    = config['tracking']['collider']['name'],
+                                            distribution_name= config['tracking']['particles']['name'],
+                                            datakeys         = new_data)
+        
+        # Updating Interface data excecution time)
         #--------------------------
-        if config['tracking']['turn_b_turn_path'] is not None:
-            if config['tracking']['last_n_turns'] is not None:
-                # Keeping only last_n_turns!
-                #----------
-                turn_idx_min = config['tracking']['n_turns'] - config['tracking']['last_n_turns']
-                tracked._df._df = tracked.df[tracked.df.turn>=turn_idx_min]
-                #----------
-
-                if (context.nparray_from_context_array(particles.at_turn).max())>turn_idx_min:
-                    tracked.to_parquet(config['tracking']['turn_b_turn_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length),handpick_particles=handpick_particles)
-            else:
-                tracked.to_parquet(config['tracking']['turn_b_turn_path'],partition_name='CHUNK',partition_ID=str(ID).zfill(ID_length),handpick_particles=handpick_particles)
-        #--------------------------
-
-    
-    # Saving data buffer if needed
-    #--------------------------
-    if config['tracking']['data_path'] is not None:
-        tracked.exec_time    = PBar.main_task.finished_time
-        tracked.parquet_data = '_data'
-        tracked._data        = data_buffer.to_pandas()
-        tracked.to_parquet(config['tracking']['data_path'],partition_name=config['tracking']['partition_name'],partition_ID=config['tracking']['partition_ID'])
-
-    if config['tracking']['checkpoint_path'] is not None:
-        tracked.exec_time    = PBar.main_task.finished_time
-        tracked.parquet_data = '_checkpoint'
-        tracked._checkpoint  = checkpoint_buffer.to_pandas()
-        tracked.to_parquet(config['tracking']['checkpoint_path'],partition_name=config['tracking']['partition_name'],partition_ID=config['tracking']['partition_ID'])
-    #--------------------------
+        interface.export_metadata(  path = config['analysis']['path'],
+                                    collider_name    = config['tracking']['collider']['name'],
+                                    distribution_name= config['tracking']['particles']['name'])
+                
+    except Exception as error:
+        PBar.close()
+        print("An error occurred:", type(error).__name__, " - ", error)
+        traceback.print_exc()
+    except KeyboardInterrupt:
+        PBar.close()
+        print("Terminated by user: KeyboardInterrupt")
 
 
-
-    return particles,tracked
+    return particles,interface
 
 
 # ==================================================================================================
@@ -299,5 +403,5 @@ if __name__ == '__main__':
     
     assert Path(args.config).exists(), 'Invalid config path'
     
-    particles,tracked = particle_dist_and_track(config_path=args.config)
+    particles,interface = particle_dist_and_track(config_path=args.config)
     #===========================

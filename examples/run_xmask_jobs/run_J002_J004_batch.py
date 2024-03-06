@@ -7,8 +7,8 @@ import time
 import json
 import ruamel.yaml
 
-import BBStudies.Tracking.XMask.Utils as xutils
-import BBStudies.Tracking.XMask.Jobs as Jobs
+import BBStudies.Tracking.Utils as xutils
+import BBStudies.Tracking.Jobs as Jobs
 
 
 def run_jobs(user_context = 'GPU', device_id = 0):
@@ -19,9 +19,8 @@ def run_jobs(user_context = 'GPU', device_id = 0):
     #-------------------------
 
     # Choose collider file from device_id
-    collider_file   = 'BUNCH_0220'
-    partition_name  = 'KAM'
-    particle_file   = [ 'SERPENT_XY_ZETA_2',
+    collider_name   = 'BUNCH_0220'
+    particle_name   = [ 'SERPENT_XY_ZETA_2',
                         'SERPENT_XY_ZETA_3',
                         'SERPENT_XY_ZETA_2',
                         'SERPENT_XY_ZETA_3',][device_id]
@@ -30,25 +29,47 @@ def run_jobs(user_context = 'GPU', device_id = 0):
 
 
     # Update config
-    #====================================
     config = xutils.read_YAML(config_file)
 
-    config['tracking']['user_context']      = user_context
-    config['tracking']['device_id']         = device_id
+    # TRACKING
+    #====================================
+    config['tracking']['num_turns']                 = int(1e3)
+    config['tracking']['size_chunks']               = int(100)
+    #====================================
 
-    config['tracking']['particles_path']    = f'particles/{particle_file}.parquet'
-    config['tracking']['collider_path']     = f'colliders/collider_{collider_file}.json'
-    
+    #====================================
+    config['tracking']['context']['type']           = user_context
+    config['tracking']['context']['device_id']      = device_id
+    #-----------------------
+    config['tracking']['collider']['path']          = f'colliders/collider_{collider_name}.json'
+    config['tracking']['collider']['name']          = collider_name
+    config['tracking']['collider']['sequence']      = 'lhcb1'
+    #-----------------------
+    config['tracking']['collider']['cycle_at']      = 'IP3'
+    config['tracking']['collider']['monitor_at']    = ['TCP_V', 'TCP_H', 'TCP_S'] 
+    #====================================
+
+    #====================================
+    config['tracking']['particles']['path']         = f'particles/{particle_name}.parquet'
+    config['tracking']['particles']['name']         = particle_name
+    #====================================
 
 
-    config['tracking']['partition_name']    = partition_name
-    config['tracking']['partition_ID']      = f'{collider_file}_{particle_file}'
-    config['tracking']['data_path']         = 'tracking/DATA'
-    config['tracking']['checkpoint_path']   = 'tracking/CHECKPOINTS'
-    #-----------------------------------------
 
-    config['tracking']['turn_b_turn_path']  = f'tracking/FULL/{partition_name}_{collider_file}_{particle_file}'
-    config['tracking']['last_n_turns']      = 100
+    # ANALYSIS
+    #====================================
+    config['tracking']['analysis']['path']                      = 'tracking'
+
+    config['tracking']['analysis']['turn_by_turn']['active']    = False
+    config['tracking']['analysis']['checkpoints']['active']     = True
+    config['tracking']['analysis']['excursion']['active']       = True
+    config['tracking']['analysis']['naff']['active']            = True
+    #-----------------------
+    config['tracking']['analysis']['naff']['num_turns']         = int(500)
+    config['tracking']['analysis']['naff']['num_harmonics']     = 10
+    config['tracking']['analysis']['naff']['window_order']      = 4
+    config['tracking']['analysis']['naff']['window_type']       = 'hann'
+    config['tracking']['analysis']['naff']['multiprocesses']    = 4 
     #====================================
 
 
@@ -66,10 +87,10 @@ def run_jobs(user_context = 'GPU', device_id = 0):
     #====================================
     print(f'RUNNING FILE: {tmp_file}')
     subprocess.run(["python", f"{Jobs.JOBS['J002']}/main.py","-c", f"{tmp_file}"])
-    subprocess.run(["python", f"{Jobs.JOBS['J004']}/main.py",   "--data_path"       , f"{config['tracking']['data_path']}",
-                                                                "--checkpoint_path" , f"{config['tracking']['checkpoint_path']}",
-                                                                "--partition_name"  , f"{config['tracking']['partition_name']}",
-                                                                "--partition_ID"    , f"{config['tracking']['partition_ID']}"])
+    # subprocess.run(["python", f"{Jobs.JOBS['J004']}/main.py",   "--data_path"       , f"{config['tracking']['data_path']}",
+    #                                                             "--checkpoint_path" , f"{config['tracking']['checkpoint_path']}",
+    #                                                             "--partition_name"  , f"{config['tracking']['partition_name']}",
+    #                                                             "--partition_ID"    , f"{config['tracking']['partition_ID']}"])
     #====================================
 
 

@@ -61,7 +61,7 @@ class Buffer():
 # CPU monitor
 # Class to store the monitor data (only convert GPU -> CPU once)
 #===================================================
-class CPU_monitor:
+class CPU_monitor():
     
     def __init__(self,):
         self.x = None
@@ -79,13 +79,13 @@ class CPU_monitor:
         
         
     def process(self,monitor):
-        
+        # Copying data: accessing the GPU monitor data copies it to CPU!
         self.x = monitor.x
         self.px = monitor.px
         self.y = monitor.y
         self.py = monitor.py
         self.zeta = monitor.zeta
-        self.pzeta = monitor.pzeta
+        self.pzeta = np.array(np.divide(monitor.ptau,monitor.beta0, np.zeros_like(monitor.ptau) + np.nan,where=monitor.beta0!=0))#np.array(monitor.pzeta)
         self.state = monitor.state
         self.start_at_turn = monitor.start_at_turn
         self.stop_at_turn = monitor.stop_at_turn
@@ -98,53 +98,80 @@ class CPU_monitor:
 # Storage monitor
 # Class to store data over several chunks
 #===================================================
-class storage_monitor:
+class storage_monitor():
     
-    def __init__(self,):
-        self.x = None
-        self.px = None
-        self.y = None
-        self.py = None
-        self.zeta = None
-        self.pzeta = None
-        self.state = None
+    def __init__(self,num_particles,num_turns):
+        self.num_particles = num_particles
+        self.num_turns = num_turns
+
+        # Initialize arrays, ordered by [particles,turns]
+        self.x = np.zeros((num_particles,num_turns))
+        self.px = np.zeros((num_particles,num_turns))
+        self.y = np.zeros((num_particles,num_turns))
+        self.py = np.zeros((num_particles,num_turns))
+        self.zeta = np.zeros((num_particles,num_turns))
+        self.pzeta = np.zeros((num_particles,num_turns))
+        self.state = np.zeros((num_particles,num_turns))
+
+        self.clean()
+
+
+    def clean(self):
+
+        # reset arrays
+        self.x *= 0
+        self.px *= 0
+        self.y *= 0
+        self.py *= 0
+        self.zeta *= 0
+        self.pzeta *= 0
+        self.state *= 0
+
         self.start_at_turn = None
         self.stop_at_turn = None
+
         self.part_id_start = None
         self.part_id_end = None
 
         self.call_ID = None
-        
-    def process(self,monitor):
+    
+
+    def update(self,monitor):
+        # Initialize
+        #-------------------------
         if self.call_ID is None:
-            self.x = monitor.x
-            self.px = monitor.px
-            self.y = monitor.y
-            self.py = monitor.py
-            self.zeta = monitor.zeta
-            self.pzeta = monitor.pzeta
-            self.state = monitor.state[:,-1]
-            self.start_at_turn = monitor.start_at_turn
-            self.stop_at_turn = monitor.stop_at_turn
-            self.part_id_start = monitor.part_id_start
-            self.part_id_end = monitor.part_id_end
+            self.call_ID = 0
+            assert monitor.part_id_end-monitor.part_id_start==self.num_particles, "num_particles is not consistent!"
+            self.start_at_turn  = monitor.start_at_turn
+            self.stop_at_turn   = monitor.stop_at_turn
+            self.part_id_start  = monitor.part_id_start
+            self.part_id_end    = monitor.part_id_end
         else:
+            self.call_ID += 1
+        
             assert self.part_id_start==monitor.part_id_start, "part_id_start should be the same"
             assert self.part_id_end==monitor.part_id_end, "part_id_end should be the same"
-            
-            # concatenate data:
-            self.x = np.concatenate((self.x,monitor.x),axis=1)
-            self.px = np.concatenate((self.px,monitor.px),axis=1)
-            self.y = np.concatenate((self.y,monitor.y),axis=1)
-            self.py = np.concatenate((self.py,monitor.py),axis=1)
-            self.zeta = np.concatenate((self.zeta,monitor.zeta),axis=1)
-            self.pzeta = np.concatenate((self.pzeta,monitor.pzeta),axis=1)
-            self.state = np.concatenate((self.state,monitor.state[:,-1]),axis=1)
             
             # Keeping start_at_turn, updating stop_at_turn
             self.stop_at_turn = monitor.stop_at_turn
 
+            
 
+    def process(self,monitor):
+        self.update(monitor)
+
+        # Updating arrays
+        _from = monitor.start_at_turn-self.start_at_turn
+        _to   = monitor.stop_at_turn-self.start_at_turn
+        self.x[:,_from:_to] = monitor.x.copy()
+        self.px[:,_from:_to] = monitor.px.copy()
+        self.y[:,_from:_to] = monitor.y.copy()
+        self.py[:,_from:_to] = monitor.py.copy()
+        self.zeta[:,_from:_to] = monitor.zeta.copy()
+        self.pzeta[:,_from:_to] = monitor.pzeta.copy()
+        self.state[:,_from:_to] = monitor.state.copy()
+
+            
 #===================================================
 
 
@@ -153,13 +180,16 @@ class storage_monitor:
 #===================================================
 class Checkpoint_Buffer(Buffer):
     def __init__(self,):
-
         super().__init__()
-
-        self.data['Chunk ID'] = []
-        self.data['turn']     = []
+        self.clean()
+        
+        
+    def clean(self,):
+        self.data['chunk'] = []
         self.data['particle'] = []
+        self.data['turn']     = []
         self.data['state']    = []
+        
         self.data['x']        = []
         self.data['px']       = []
         self.data['y']        = []
@@ -167,7 +197,6 @@ class Checkpoint_Buffer(Buffer):
         self.data['zeta']     = []
         self.data['pzeta']    = []
         
-
 
     def process(self,monitor):
         self.update(monitor = monitor)
@@ -177,16 +206,17 @@ class Checkpoint_Buffer(Buffer):
 
         # Appending to data
         #-------------------------
-        self.data['Chunk ID'].append(self.call_ID)
-        self.data['turn'].append(start_at_turn)
+        self.data['chunk'].append(self.call_ID)
         self.data['particle'].append(self.particle_id)
-        self.data['state'].append(monitor.state[:,0])
-        self.data['x'].append(monitor.x[:,0])
-        self.data['px'].append(monitor.px[:,0])
-        self.data['y'].append(monitor.y[:,0])
-        self.data['py'].append(monitor.py[:,0])
-        self.data['zeta'].append(monitor.zeta[:,0])
-        self.data['pzeta'].append(monitor.pzeta[:,0])
+        self.data['turn'].append(start_at_turn)
+        self.data['state'].append(monitor.state[:,-1].astype('int').copy())
+
+        self.data['x'].append(monitor.x[:,0].copy())
+        self.data['px'].append(monitor.px[:,0].copy())
+        self.data['y'].append(monitor.y[:,0].copy())
+        self.data['py'].append(monitor.py[:,0].copy())
+        self.data['zeta'].append(monitor.zeta[:,0].copy())
+        self.data['pzeta'].append(monitor.pzeta[:,0].copy())
         #-------------------------
 #===================================================
         
@@ -195,22 +225,23 @@ class Checkpoint_Buffer(Buffer):
 #===================================================
 class Excursion_Buffer(Buffer):
     def __init__(self,):
-        
         super().__init__()  
+        self.clean()
+        
 
-        self.data['Chunk ID'] = []
+    def clean(self,):        
+        self.data['chunk'] = []
         self.data['particle'] = []
-        self.data['state']    = []
         self.data['start_at_turn'] = []
         self.data['stop_at_turn']  = []
+        self.data['state']    = []
+
         self.data['x_min'] = []
         self.data['x_max'] = []
         self.data['y_min'] = []
         self.data['y_max'] = []
         self.data['skew_min'] = []
         self.data['skew_max'] = []
-
-        
 
 
     def process(self,monitor):
@@ -255,11 +286,12 @@ class Excursion_Buffer(Buffer):
 
         # Appending to data
         #-------------------------
-        self.data['Chunk ID'].append(self.call_ID)
+        self.data['chunk'].append(self.call_ID)
         self.data['particle'].append(self.particle_id)
-        self.data['state'].append(monitor.state[:,-1])
         self.data['start_at_turn'].append(start_at_turn)
         self.data['stop_at_turn'].append(stop_at_turn)
+        self.data['state'].append(monitor.state[:,-1].astype('int').copy())
+
         self.data['x_min'].append(x_min)
         self.data['x_max'].append(x_max)
         self.data['y_min'].append(y_min)
@@ -277,8 +309,8 @@ class Excursion_Buffer(Buffer):
 #===================================================
 class NAFF_Buffer(Buffer):
     def __init__(self,):
-
         super().__init__()  
+        self.clean()
 
         # To be injected manually!
         #=========================
@@ -294,13 +326,17 @@ class NAFF_Buffer(Buffer):
         self.n_harm       = None
         self.window_order = None
         self.window_type  = None
+        self.multiprocesses = None
         #=========================
 
-        self.data['Chunk ID'] = []
+        
+    def clean(self,):
+        self.data['window'] = []
         self.data['particle'] = []
-        self.data['state']    = []
         self.data['start_at_turn'] = []
         self.data['stop_at_turn']  = []
+        self.data['N'] = []
+        self.data['state']    = []
 
         self.data['Ax']  = []
         self.data['Qx']  = []
@@ -308,8 +344,6 @@ class NAFF_Buffer(Buffer):
         self.data['Qy']  = []
         self.data['Azeta']  = []
         self.data['Qzeta']  = []
-
-
 
     def process(self,monitor):
         self.update(monitor = monitor)
@@ -346,25 +380,20 @@ class NAFF_Buffer(Buffer):
         n_harm       = self.n_harm
         window_order = self.window_order
         window_type  = self.window_type
-        try:
-            Ax,Qx       = nafflib.multiparticle_harmonics(x_sig,px_sig, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
-            Ay,Qy       = nafflib.multiparticle_harmonics(y_sig,py_sig, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
-            Azeta,Qzeta = nafflib.multiparticle_harmonics(zeta_sig,pzeta_sig, num_harmonics=n_harm, window_order=window_order, window_type=window_type)
-        except Exception as error:
-            print("An exception occurred:", type(error).__name__, "-", error) # An exception occurred
-            n_part = len(x)
-            Ax,Qx = np.array(n_part * [n_harm*[np.nan+ 1j*np.nan]]),np.array(n_part * [n_harm*[np.nan]])
-            Ay,Qy =  np.array(n_part * [n_harm*[np.nan+ 1j*np.nan]]),np.array(n_part * [n_harm*[np.nan]])
-            Azeta,Qzeta =  np.array(n_part * [n_harm*[np.nan+ 1j*np.nan]]),np.array(n_part * [n_harm*[np.nan]])
+
+        Ax,Qx       = nafflib.multiparticle_harmonics(x_sig,px_sig      , num_harmonics=n_harm, window_order=window_order, window_type=window_type, processes = self.multiprocesses)
+        Ay,Qy       = nafflib.multiparticle_harmonics(y_sig,py_sig      , num_harmonics=n_harm, window_order=window_order, window_type=window_type, processes = self.multiprocesses)
+        Azeta,Qzeta = nafflib.multiparticle_harmonics(zeta_sig,pzeta_sig, num_harmonics=n_harm, window_order=window_order, window_type=window_type, processes = self.multiprocesses)
 
 
         # Appending to data
         #-------------------------
-        self.data['Chunk ID'].append(self.call_ID)
+        self.data['window'].append(self.call_ID)
         self.data['particle'].append(self.particle_id)
-        self.data['state'].append(monitor.state[:,-1])
         self.data['start_at_turn'].append(start_at_turn)
         self.data['stop_at_turn'].append(stop_at_turn)
+        self.data['N'].append(len(x_sig[0]))
+        self.data['state'].append(monitor.state[:,-1].astype('int').copy())
         #----------
         self.data['Ax'].append(Ax)
         self.data['Qx'].append(Qx)
