@@ -4,15 +4,15 @@
 tracking:
   #---- CONTEXT --------------------------------------------------------------------------
   context:
-    type        : CPU
+    type        : GPU
     device_id   : 
   #---------------------------------------------------------------------------------------
 
 
   #---- COLLIDER -------------------------------------------------------------------------
   collider:
-    path          : colliders/collider_BUNCH_0220.json
-    name          : BUNCH_0220
+    path          : colliders/collider_BUNCH_0000.json
+    name          : BUNCH_0000
     sequence      : lhcb1
     method        : 6D
   #-----------------------
@@ -30,8 +30,8 @@ tracking:
 
   #---- TURN-BY-TURN TRACKING, PARTITIONNED BY CHUNK -------------------------------------
   # Estimate turn-by-turn file size -> 1.2 GB per 1000 turns per 20k particles
-  num_turns         : 1000 
-  size_chunks       : 100
+  num_turns         : 1e5 
+  size_chunks       : 1e3
   #-- Optional
   num_chunks        :
   #---------------------------------------------------------------------------------------
@@ -46,9 +46,11 @@ analysis:
 
   #---- TURN-BY-TURN----------------------------------------------------------------------
   turn_by_turn:
-    active     : True
+    active     : False
   #---------------------------------------------------------------------------------------
 
+  # Chunking for both checkpoints and excursion:
+  num_turns : 1e4
   #---- CHECKPOINTS ----------------------------------------------------------------------
   checkpoints :
     active     : True
@@ -62,12 +64,12 @@ analysis:
   #---- NAFF -----------------------------------------------------------------------------
   naff:
     active        : True
-    num_turns     : 500
-    num_harmonics : 10
+    num_turns     : 1e5
+    num_harmonics : 50
     window_order  : 4
     window_type   : 'hann'
     #-- Optional
-    multiprocesses: 4
+    multiprocesses: 10
   #---------------------------------------------------------------------------------------
 
 

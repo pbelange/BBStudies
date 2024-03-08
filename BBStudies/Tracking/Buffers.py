@@ -91,6 +91,18 @@ class CPU_monitor():
         self.stop_at_turn = monitor.stop_at_turn
         self.part_id_start = monitor.part_id_start
         self.part_id_end = monitor.part_id_end
+
+        self.num_turns = len(self.x)
+
+
+    # CPU monitor is always overwritten by xt.ParticleMonitor! 
+    def clean(self):
+        pass
+
+    # CPU monitor is always full! 
+    @property
+    def is_full(self,):
+        return ((self.stop_at_turn-self.start_at_turn)>=self.num_turns)
 #===================================================
 
 
@@ -171,7 +183,9 @@ class storage_monitor():
         self.pzeta[:,_from:_to] = monitor.pzeta.copy()
         self.state[:,_from:_to] = monitor.state.copy()
 
-            
+    @property
+    def is_full(self,):
+        return ((self.stop_at_turn-self.start_at_turn)>=self.num_turns)
 #===================================================
 
 

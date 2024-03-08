@@ -19,11 +19,11 @@ def run_jobs(user_context = 'GPU', device_id = 0):
     #-------------------------
 
     # Choose collider file from device_id
-    collider_name   = 'BUNCH_0220'
-    particle_name   = [ 'SERPENT_XY_ZETA_2',
-                        'SERPENT_XY_ZETA_3',
-                        'SERPENT_XY_ZETA_2',
-                        'SERPENT_XY_ZETA_3',][device_id]
+    collider_name   = 'BUNCH_0000'
+    particle_name   = [ 'XY_ZETA_1',
+                        'XY_ZETA_1',
+                        'XY_ZETA_1',
+                        'XY_ZETA_1',][device_id]
 
 
 
@@ -33,8 +33,8 @@ def run_jobs(user_context = 'GPU', device_id = 0):
 
     # TRACKING
     #====================================
-    config['tracking']['num_turns']                 = int(1e3)
-    config['tracking']['size_chunks']               = int(100)
+    config['tracking']['num_turns']                 = int(1e6)
+    config['tracking']['size_chunks']               = int(500)
     #====================================
 
     #====================================
@@ -58,18 +58,26 @@ def run_jobs(user_context = 'GPU', device_id = 0):
 
     # ANALYSIS
     #====================================
-    config['tracking']['analysis']['path']                      = 'tracking'
+    config['analysis']['path']                      = 'tracking'
 
-    config['tracking']['analysis']['turn_by_turn']['active']    = False
-    config['tracking']['analysis']['checkpoints']['active']     = True
-    config['tracking']['analysis']['excursion']['active']       = True
-    config['tracking']['analysis']['naff']['active']            = True
     #-----------------------
-    config['tracking']['analysis']['naff']['num_turns']         = int(500)
-    config['tracking']['analysis']['naff']['num_harmonics']     = 10
-    config['tracking']['analysis']['naff']['window_order']      = 4
-    config['tracking']['analysis']['naff']['window_type']       = 'hann'
-    config['tracking']['analysis']['naff']['multiprocesses']    = 4 
+    config['analysis']['num_turns']                 = int(1e4)
+    #-----------------------
+    
+    #-----------------------
+    config['analysis']['turn_by_turn']['active']    = False
+    config['analysis']['naff']['active']            = False
+
+    config['analysis']['checkpoints']['active']     = True
+    config['analysis']['excursion']['active']       = True
+    #-----------------------
+    
+    #-----------------------
+    config['analysis']['naff']['num_turns']         = None
+    config['analysis']['naff']['num_harmonics']     = None
+    config['analysis']['naff']['window_order']      = None
+    config['analysis']['naff']['window_type']       = None
+    config['analysis']['naff']['multiprocesses']    = None
     #====================================
 
 
@@ -77,8 +85,8 @@ def run_jobs(user_context = 'GPU', device_id = 0):
 
     # Save tmp file
     #-------------------------
-    tmp_file = tmp_file.format( user_context = config['tracking']['user_context'],
-                                device_id    = config['tracking']['device_id'])
+    tmp_file = tmp_file.format( user_context = config['tracking']['context']['type'],
+                                device_id    = config['tracking']['context']['device_id'])
     xutils.save_YAML(config,file=tmp_file)
     #-------------------------
 

@@ -206,20 +206,32 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
         # CPU_monitor to only extract once from GPU
         monitors[monitor_at]['cpu'] = xBuff.CPU_monitor()
 
+        # Storage for analysis
+        if config['analysis']['num_turns'] is not None:
+            monitors[monitor_at]['storage'] = xBuff.storage_monitor(num_particles,config['analysis']['num_turns'])
+        else:
+            # Point back to original cpu monitor
+            monitors[monitor_at]['storage'] = monitors[monitor_at]['cpu']
+
+
         # NAFF storage for long N values
         if config['analysis']['naff']['active']:
-            monitors[monitor_at]['storage'] = xBuff.storage_monitor(num_particles,config['analysis']['naff']['num_turns'])
+            monitors[monitor_at]['storage_naff'] = xBuff.storage_monitor(num_particles,config['analysis']['naff']['num_turns'])
+        else:
+            monitors[monitor_at]['storage_naff'] = None
 
         # pcsections
+        # Note: particle_on_co is tracked on the context and then copied again to bring back 
+        # to CPU
         ee_name = ee_at_dict[monitor_at]
         ee_idx = _twiss.name.tolist().index(ee_name)
-        _particle_on_co = _twiss.particle_on_co.copy()
+        _particle_on_co = _twiss.particle_on_co.copy(_context=context)
         line.track(_particle_on_co , ele_start=0, ele_stop=ee_idx)
         pcsections[monitor_at] = xPlus.Poincare_Section(name           = monitor_at,
                                                         ee_name        = ee_name,
                                                         s              = _twiss.s[ee_idx],
                                                         W_matrix       = _twiss.W_matrix[ee_idx],
-                                                        particle_on_co = _particle_on_co,
+                                                        particle_on_co = _particle_on_co.copy(_context=xo.context_default),
                                                         tune_on_co     = [_twiss.mux[-1], _twiss.muy[-1], _twiss.muzeta[-1]],
                                                         nemitt_x       = nemitt_x,       
                                                         nemitt_y       = nemitt_y,       
@@ -260,6 +272,7 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     interface = xPlus.Tracking_Interface(   line            = line,
                                             method          = method,
                                             cycle_at        = cycle_at,
+                                            sequence        = sequence,
                                             context         = context,
                                             config          = config,
 
@@ -310,42 +323,52 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
 
                 _monitor_main = monitors[key]['main']
                 _monitor_cpu = monitors[key]['cpu']
-                _monitor_storage = monitors[key]['storage']
+                _monitor_storage      = monitors[key]['storage']
+                _monitor_storage_naff = monitors[key]['storage_naff']
+                
 
                 _buffer_checkpoints = buffers[key]['checkpoints']
                 _buffer_excursion = buffers[key]['excursion']
                 _buffer_naff = buffers[key]['naff'] 
 
-
                 # Making sure the data is on cpu:
                 _monitor_cpu.process(monitor=_monitor_main)
+                
+                # Saving into storage
+                if isinstance(_monitor_storage,xBuff.storage_monitor):
+                    _monitor_storage.process(monitor=_monitor_cpu)
+                # Else: _monitor_storage IS _monitor_cpu anyway    
 
-                # Saving Checkpoint if needed
-                #--------------------------
-                if _buffer_checkpoints is not None:
-                    _buffer_checkpoints.process(monitor=_monitor_cpu)
-                    new_data.append('checkpoints')
+                # Processing the analysis
+                if _monitor_storage.is_full:
+                    # Saving Checkpoint if needed
+                    #--------------------------
+                    if _buffer_checkpoints is not None:
+                        _buffer_checkpoints.process(monitor=_monitor_storage)
+                        new_data.append('checkpoints')
 
-                # Saving Excursion if needed
-                #--------------------------
-                if _buffer_excursion is not None:
-                    _buffer_excursion.process(monitor=_monitor_cpu)
-                    new_data.append('excursion')
+                    # Saving Excursion if needed
+                    #--------------------------
+                    if _buffer_excursion is not None:
+                        _buffer_excursion.process(monitor=_monitor_storage)
+                        new_data.append('excursion')
+
+                    # Cleaning up!
+                    _monitor_storage.clean()
 
                 # NAFF computations
                 #--------------------------
                 if _buffer_naff is not None:
                     # Storing for NAFF
-                    _monitor_storage.process(monitor=_monitor_cpu)
+                    _monitor_storage_naff.process(monitor=_monitor_cpu)
 
-                    # NAFF if window length is reached
-                    naff_iterations = 0 if _buffer_naff.call_ID is None else _buffer_naff.call_ID + 1
-                    if _monitor_storage.stop_at_turn >= (naff_iterations+1)*config['analysis']['naff']['num_turns']:
-
-                        # Processing and cleaning storage for next iteration
-                        _buffer_naff.process(monitor=_monitor_storage)
-                        _monitor_storage.clean()
+                    # Processing (NAFF if window length is reached)
+                    if _monitor_storage_naff.is_full:
+                        _buffer_naff.process(monitor=_monitor_storage_naff)
                         new_data.append('naff')
+
+                        # Cleaning up!
+                        _monitor_storage_naff.clean()
                         
                 #--------------------------
                         
