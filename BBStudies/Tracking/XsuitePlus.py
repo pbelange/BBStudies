@@ -586,13 +586,14 @@ def W_phys2norm(x,px,y,py,zeta,pzeta,W_matrix,particle_on_co,to_pd = False):
 def norm2sigma(x_n,px_n,y_n,py_n,zeta_n,pzeta_n,nemitt_x,nemitt_y,nemitt_zeta,particle_on_co,to_pd = False):
 
     gamma0 = particle_on_co.gamma0[0]
+    beta0  = particle_on_co.beta0[0]
     XX = np.zeros(shape=(6, len(x_n)), dtype=np.float64)
-    XX[0,:] = x_n     / np.sqrt(nemitt_x/gamma0)
-    XX[1,:] = px_n    / np.sqrt(nemitt_x/gamma0)
-    XX[2,:] = y_n     / np.sqrt(nemitt_y/gamma0)
-    XX[3,:] = py_n    / np.sqrt(nemitt_y/gamma0)
-    XX[4,:] = zeta_n  / np.sqrt(nemitt_zeta/gamma0)
-    XX[5,:] = pzeta_n / np.sqrt(nemitt_zeta/gamma0)
+    XX[0,:] = x_n     / np.sqrt(nemitt_x/gamma0/beta0)
+    XX[1,:] = px_n    / np.sqrt(nemitt_x/gamma0/beta0)
+    XX[2,:] = y_n     / np.sqrt(nemitt_y/gamma0/beta0)
+    XX[3,:] = py_n    / np.sqrt(nemitt_y/gamma0/beta0)
+    XX[4,:] = zeta_n  / np.sqrt(nemitt_zeta/gamma0/beta0)
+    XX[5,:] = pzeta_n / np.sqrt(nemitt_zeta/gamma0/beta0)
 
     if to_pd:
         return pd.DataFrame({'x_sig':XX[0,:],'px_sig':XX[1,:],'y_sig':XX[2,:],'py_sig':XX[3,:],'zeta_sig':XX[4,:],'pzeta_sig':XX[5,:]})
