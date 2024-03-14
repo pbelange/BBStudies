@@ -106,7 +106,6 @@ xt.ParticlesMonitor.to_pandas = pandas_monitor
 # --- Main function
 # ==================================================================================================
 def particle_dist_and_track(config = None,config_path = 'config.yaml'):
-
     # Loading config
     #==============================
     if config is None:
@@ -221,17 +220,10 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
             monitors[monitor_at]['storage_naff'] = None
 
         # pcsections
-        # Note: particle_on_co is tracked on the context and then copied again to bring back 
-        # to CPU
         ee_name = ee_at_dict[monitor_at]
         ee_idx = _twiss.name.tolist().index(ee_name)
-        _particle_on_co = _twiss.particle_on_co.copy(_context=context)
-        line.track(_particle_on_co , ele_start=0, ele_stop=ee_idx)
         pcsections[monitor_at] = xPlus.Poincare_Section(name           = monitor_at,
-                                                        ee_name        = ee_name,
-                                                        s              = _twiss.s[ee_idx],
-                                                        W_matrix       = _twiss.W_matrix[ee_idx],
-                                                        particle_on_co = _particle_on_co.copy(_context=xo.context_default),
+                                                        twiss          = _twiss.get_twiss_init(at_element=ee_name), 
                                                         tune_on_co     = [_twiss.mux[-1], _twiss.muy[-1], _twiss.muzeta[-1]],
                                                         nemitt_x       = nemitt_x,       
                                                         nemitt_y       = nemitt_y,       
@@ -252,8 +244,7 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
 
             # To be injected manually!
             #=========================
-            buffers[monitor_at]['naff'].W_matrix       = pcsections[monitor_at].W_matrix
-            buffers[monitor_at]['naff'].particle_on_co = pcsections[monitor_at].particle_on_co
+            buffers[monitor_at]['naff'].twiss          = pcsections[monitor_at].twiss
             buffers[monitor_at]['naff'].nemitt_x       = pcsections[monitor_at].nemitt_x       
             buffers[monitor_at]['naff'].nemitt_y       = pcsections[monitor_at].nemitt_y       
             buffers[monitor_at]['naff'].nemitt_zeta    = pcsections[monitor_at].nemitt_zeta    
@@ -271,7 +262,7 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
     PBar = pbar.ProgressBar(message='___  Tracking  ___',color='blue',n_steps=len(chunks),max_visible=3)
     interface = xPlus.Tracking_Interface(   line            = line,
                                             method          = method,
-                                            cycle_at        = cycle_at,
+                                            cycle_at        = ee_at_dict[cycle_at],
                                             sequence        = sequence,
                                             context         = context,
                                             config          = config,

@@ -9,6 +9,7 @@ import nafflib
 
 import xtrack as xt
 import xpart as xp
+import xobjects as xo
 
 
 
@@ -19,22 +20,19 @@ import BBStudies.Physics.Constants as cst
 
 
 class Poincare_Section():
-    def __init__(self,name=None,ee_name=None,s=None,W_matrix=None,particle_on_co=None,tune_on_co=None,nemitt_x=None,nemitt_y=None,nemitt_zeta=None):
+    def __init__(self,name=None,twiss = None,tune_on_co=None,nemitt_x=None,nemitt_y=None,nemitt_zeta=None):
         #===========================
         self.name           = name
-        self.ee_name        = ee_name
-        self.s              = s
-
         self.data           = {'naff':None,'excursion':None,'checkpoints':None,'tbt':None}
-
         #-------------
-        self.W_matrix       = W_matrix
-        self.particle_on_co = particle_on_co 
+        self.twiss          = twiss
         self.tune_on_co     = tune_on_co
         self.nemitt_x       = nemitt_x
         self.nemitt_y       = nemitt_y
         self.nemitt_zeta    = nemitt_zeta
         #===========================
+
+
     
     @property
     def datakeys(self):
@@ -42,14 +40,11 @@ class Poincare_Section():
 
     def to_dict(self):
         metadata = {'name'            : self.name,
-                    'ee_name'         : self.ee_name,
-                    's'               : self.s,
                     'datakeys'        : self.datakeys,
+                    'twiss'           : self.twiss.to_dict(),
                     'nemitt_x'        : self.nemitt_x,
                     'nemitt_y'        : self.nemitt_y,
                     'nemitt_zeta'     : self.nemitt_zeta,
-                    'W_matrix'        : self.W_matrix,
-                    'particle_on_co'  : self.particle_on_co.to_dict(),
                     'tune_on_co'      : self.tune_on_co}
         return metadata
 
@@ -94,10 +89,8 @@ class Poincare_Section():
 
         for key in metadata.keys():
             # Exceptions for specific objects
-            if key == 'W_matrix':
-                self.W_matrix  = np.array(metadata['W_matrix'])
-            elif key == 'particle_on_co':
-                self.particle_on_co = xp.Particles.from_dict(metadata['particle_on_co'])
+            if key == 'twiss':
+                self.twiss  = xt.TwissInit.from_dict(metadata['twiss']) 
             elif key == 'datakeys':
                 meta_datakeys = metadata['datakeys']
             else:
@@ -127,7 +120,7 @@ class Poincare_Section():
 
             # Converting to coordinate table if needed
             if key in ['checkpoints','tbt']:
-                _df = coordinate_table(_df,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
+                _df = coordinate_table(_df,twiss=self.twiss,nemitt_x=self.nemitt_x,nemitt_y=self.nemitt_y,nemitt_zeta=self.nemitt_zeta)
             
             # saving in data container
             self.data[key] = _df
@@ -135,64 +128,41 @@ class Poincare_Section():
             
         return self
 
+    @property
+    def ee_name(self):
+        return self.twiss.element_name
+    
+    @property
+    def s(self):
+        return self.twiss.s
+    
+    @property
+    def W_matrix(self):
+        return self.twiss.W_matrix
+    
+    @property
+    def particle_on_co(self):
+        return self.twiss.particle_on_co
+    
 
-    @property
-    def betx(self):
-        if self.W_matrix is not None:         
-            return (self.W_matrix[0,0])**2
-        return None
-    @property
-    def bety(self):
-        if self.W_matrix is not None:         
-            return (self.W_matrix[2,2])**2
-        return None
-    
-    @property
-    def sigx(self):
-        if self.W_matrix is not None:         
-            return self.W_matrix[0,0]*np.sqrt(self.nemitt_x/self.particle_on_co.gamma0[0])
-        return None
-    
-    @property
-    def sigy(self):
-        if self.W_matrix is not None:         
-            return self.W_matrix[2,2]*np.sqrt(self.nemitt_y/self.particle_on_co.gamma0[0])
-        return None
-    
-    @property
-    def sigx_coll(self):
-        _sigx = np.sqrt(self.betx*3.5e-6/self.particle_on_co.gamma0[0])
-        return _sigx
-    
-    @property
-    def sigy_coll(self):
-        _sigy = np.sqrt(self.bety*3.5e-6/self.particle_on_co.gamma0[0])
-        return _sigy
-    
-    @property
-    def sigskew_coll(self):
-        # Ellipse in polar: r(alpha) = sqrt((a*cos(alpha))^2 + (b*sin(alpha))^2)
-        _sigskew = np.sqrt((self.sig_x_coll*np.cos(self.coll_alpha))**2 + (self.sig_y_coll*np.sin(self.coll_alpha))**2)
-        return _sigskew
-    
-    @property
-    def coll_alpha(self):
-        return np.deg2rad(127.5)
+
     
     def __repr__(self,):
+        print(' ')
         rich.inspect(RenderingPoincare(self),title='Poincare_Section', docs=False)
         return ''
     
 class RenderingPoincare():   
     def __init__(self,poincare):
         _dct = poincare.to_dict()
-        skip = ['W_matrix']
+        skip = ['twiss']
         for key in _dct.keys():
             if key in skip:
                 continue
             setattr(self, key, _dct[key])
-        self.particle_on_co = poincare.W_matrix.tolist()
-        self.particle_on_co = str(type(poincare.particle_on_co))
+        # self.particle_on_co = poincare.W_matrix.tolist()
+        # self.particle_on_co = str(type(poincare.particle_on_co))
+        
     
 
 
@@ -271,10 +241,10 @@ class Tracking_Interface():
         #--------------------------
         if line is not None:
             _twiss = line.twiss(method=method.lower())
-            self.particle_on_co = _twiss.particle_on_co.copy() 
+            self.twiss = _twiss.get_twiss_init(at_element=line.element_names[0])
             self.tune_on_co     = [_twiss.mux[-1], _twiss.muy[-1], _twiss.muzeta[-1]]
         else:
-            self.particle_on_co = None
+            self.twiss          = None
             self.tune_on_co     = None
         #--------------------------
 
@@ -292,7 +262,7 @@ class Tracking_Interface():
                     'nemitt_zeta'     : self.nemitt_zeta,
                     'sigma_z'         : self.sigma_z,
                     'poincare'        : {poincare.name:poincare.datakeys for poincare in self.poincare},
-                    'particle_on_co'  : self.particle_on_co.to_dict(),
+                    'twiss'           : self.twiss.to_dict(),
                     'tune_on_co'      : self.tune_on_co,
                     'config'          : self.config}
         return metadata
@@ -321,10 +291,8 @@ class Tracking_Interface():
 
         for key in metadata.keys():
             # Exceptions for specific objects
-            if key == 'W_matrix':
-                self.W_matrix  = np.array(metadata['W_matrix'])
-            elif key == 'particle_on_co':
-                self.particle_on_co = xp.Particles.from_dict(metadata['particle_on_co'])
+            if key == 'twiss':
+                self.twiss  = xt.TwissInit.from_dict(metadata['twiss']) 
             elif key == 'poincare':
                 meta_poincare = list(metadata['poincare'].keys())
             else:
@@ -429,21 +397,30 @@ class Tracking_Interface():
     def prettyconfig(self):
         rich.inspect(self.config,title='Config',docs=False)
         return ''
+    
+    @property
+    def W_matrix(self):
+        return self.twiss.W_matrix
+    
+    @property
+    def particle_on_co(self):
+        return self.twiss.particle_on_co
 
     def __repr__(self,):
+        print(' ')
         rich.inspect(RenderingInterface(self),title='Tracking_Interface', docs=False)
         return ''
     
 class RenderingInterface():   
     def __init__(self,trck):
         _dct = trck.to_dict()
-        skip = ['config','W_matrix']
+        skip = ['config','twiss']
         for key in _dct.keys():
             if key in skip:
                 continue
             setattr(self, key, _dct[key])
 
-        self.particle_on_co = str(type(trck.particle_on_co))
+        # self.particle_on_co = str(type(trck.particle_on_co))
 #===================================================
 
 
@@ -451,13 +428,12 @@ class RenderingInterface():
 
 #===================================================
 class coordinate_table():
-    def __init__(self,df,W_matrix=None,particle_on_co=None,nemitt_x=None,nemitt_y=None,nemitt_zeta=None):
+    def __init__(self,df,twiss,nemitt_x=None,nemitt_y=None,nemitt_zeta=None):
         self.df      = df
         self._df_n   = None
         self._df_sig = None
 
-        self.W_matrix = W_matrix
-        self.particle_on_co = particle_on_co
+        self.twiss    = twiss
         self.nemitt_x = nemitt_x
         self.nemitt_y = nemitt_y
         self.nemitt_zeta = nemitt_zeta
@@ -466,7 +442,8 @@ class coordinate_table():
     @property
     def df_n(self):
         if self._df_n is None:
-            coord_n    = W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],W_matrix=self.W_matrix,particle_on_co=self.particle_on_co,to_pd=True)
+            XX_n       =  _W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],W_matrix=self.twiss.W_matrix,co_dict = self.twiss.particle_on_co.copy(_context=xo.context_default).to_dict())
+            coord_n    = pd.DataFrame({'x_n':XX_n[0,:],'px_n':XX_n[1,:],'y_n':XX_n[2,:],'py_n':XX_n[3,:],'zeta_n':XX_n[4,:],'pzeta_n':XX_n[5,:]})
             old_cols   = list(self.df.columns.drop(['x','px','y','py','zeta','pzeta']))
             self._df_n = pd.concat([self.df[old_cols],coord_n],axis=1)
         return self._df_n
@@ -481,9 +458,12 @@ class coordinate_table():
                 return None
             
             # Computing in sigma coordinates
-            coord_sig    = norm2sigma(**self.df_n[['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co,to_pd=True)
-            old_cols     = list(self.df_n.columns.drop(['x_n','px_n','y_n','py_n','zeta_n','pzeta_n']))
-            self._df_sig = pd.concat([self.df_n[old_cols],coord_sig],axis=1)
+            XX_sig          =  _W_phys2norm(**self.df[['x','px','y','py','zeta','pzeta']],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta,
+                                         W_matrix=self.twiss.W_matrix,co_dict = self.twiss.particle_on_co.copy(_context=xo.context_default).to_dict())
+            
+            coord_sig       = pd.DataFrame({'x_sig':XX_sig[0,:],'px_sig':XX_sig[1,:],'y_sig':XX_sig[2,:],'py_sig':XX_sig[3,:],'zeta_sig':XX_sig[4,:],'pzeta_sig':XX_sig[5,:]})
+            old_cols        = list(self.df.columns.drop(['x','px','y','py','zeta','pzeta']))
+            self._df_sig    = pd.concat([self.df[old_cols],coord_sig],axis=1)
         return self._df_sig
 #===================================================
 
@@ -553,53 +533,45 @@ def delta2pzeta(delta,beta0):
 #====================================
 
 
-#====================================
-def W_phys2norm(x,px,y,py,zeta,pzeta,W_matrix,particle_on_co,to_pd = False):
-     
+def _W_phys2norm(x, px, y, py, zeta, pzeta, W_matrix, co_dict, nemitt_x=None, nemitt_y=None, nemitt_zeta=None):
+    
+    
+    # Compute geometric emittances if normalized emittances are provided
+    gemitt_x = np.ones(shape=np.shape(co_dict['beta0'])) if nemitt_x is None else (nemitt_x / co_dict['beta0'] / co_dict['gamma0'])
+    gemitt_y = np.ones(shape=np.shape(co_dict['beta0'])) if nemitt_y is None else (nemitt_y / co_dict['beta0'] / co_dict['gamma0'])
+    gemitt_zeta = np.ones(shape=np.shape(co_dict['beta0'])) if nemitt_zeta is None else (nemitt_zeta / co_dict['beta0'] / co_dict['gamma0'])
 
-    # Compute ptau from delta
-    #=======================================
-    #beta0 = twiss.particle_on_co.beta0
-    #delta_beta0 = delta * beta0
-    #ptau_beta0 = (delta_beta0 * delta_beta0 + 2. * delta_beta0 * beta0 + 1.)**0.5 - 1.
-    #ptau  = ptau_beta0 / beta0
-    #pzeta = ptau / beta0
-    #=======================================
+    
+    # Prepaing co arrray and gemitt array:
+    co = np.array([co_dict['x'], co_dict['px'], co_dict['y'], co_dict['py'], co_dict['zeta'], co_dict['ptau'] / co_dict['beta0']])
+    gemitt_values = np.array([gemitt_x, gemitt_x, gemitt_y, gemitt_y, gemitt_zeta, gemitt_zeta])
 
-    XX = np.zeros(shape=(6, len(x)), dtype=np.float64)
-    XX[0,:] = x     - particle_on_co.x
-    XX[1,:] = px    - particle_on_co.px
-    XX[2,:] = y     - particle_on_co.y
-    XX[3,:] = py    - particle_on_co.py
-    XX[4,:] = zeta  - particle_on_co.zeta
-    XX[5,:] = pzeta - particle_on_co.ptau / particle_on_co.beta0
+    # Ensuring consistent dimensions
+    for add_axis in range(-1,len(np.shape(x))-len(np.shape(co))):
+        co = co[:,np.newaxis]
+    for add_axis in range(-1,len(np.shape(x))-len(np.shape(gemitt_values))):
+        gemitt_values = gemitt_values[:,np.newaxis]
 
-    XX_n = np.dot(np.linalg.inv(W_matrix), XX)
+    
+    # substracting closed orbit
+    XX = np.array([x, px, y, py, zeta, pzeta])
+    XX -= co
+    
 
+    # Apply the inverse transformation matrix
+    W_inv = np.linalg.inv(W_matrix)
+    
+    if len(np.shape(XX)) == 3:
+        XX_norm = np.dot(W_inv, XX.reshape(6,x.shape[0]*x.shape[1]))
+        XX_norm = XX_norm.reshape(6, x.shape[0], x.shape[1])
+    else:    
+        XX_norm = np.dot(W_inv, XX)
+    
+    # Normalize the coordinates with the geometric emittances
+    XX_norm /= np.sqrt(gemitt_values)
+    
 
-
-    if to_pd:
-        return pd.DataFrame({'x_n':XX_n[0,:],'px_n':XX_n[1,:],'y_n':XX_n[2,:],'py_n':XX_n[3,:],'zeta_n':XX_n[4,:],'pzeta_n':XX_n[5,:]})
-    else:
-        return XX_n
-
-def norm2sigma(x_n,px_n,y_n,py_n,zeta_n,pzeta_n,nemitt_x,nemitt_y,nemitt_zeta,particle_on_co,to_pd = False):
-
-    gamma0 = particle_on_co.gamma0[0]
-    beta0  = particle_on_co.beta0[0]
-    XX = np.zeros(shape=(6, len(x_n)), dtype=np.float64)
-    XX[0,:] = x_n     / np.sqrt(nemitt_x/gamma0/beta0)
-    XX[1,:] = px_n    / np.sqrt(nemitt_x/gamma0/beta0)
-    XX[2,:] = y_n     / np.sqrt(nemitt_y/gamma0/beta0)
-    XX[3,:] = py_n    / np.sqrt(nemitt_y/gamma0/beta0)
-    XX[4,:] = zeta_n  / np.sqrt(nemitt_zeta/gamma0/beta0)
-    XX[5,:] = pzeta_n / np.sqrt(nemitt_zeta/gamma0/beta0)
-
-    if to_pd:
-        return pd.DataFrame({'x_sig':XX[0,:],'px_sig':XX[1,:],'y_sig':XX[2,:],'py_sig':XX[3,:],'zeta_sig':XX[4,:],'pzeta_sig':XX[5,:]})
-    else:
-        return XX
-#=======================================
+    return XX_norm
 
 
 

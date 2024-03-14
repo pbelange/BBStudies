@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 
 import nafflib
+import xobjects as xo
+
 import BBStudies.Tracking.XsuitePlus as xPlus
 
 
@@ -328,8 +330,7 @@ class NAFF_Buffer(Buffer):
 
         # To be injected manually!
         #=========================
-        self.W_matrix       = None
-        self.particle_on_co = None
+        self.twiss          = None
         self.nemitt_x       = None
         self.nemitt_y       = None
         self.nemitt_zeta    = None
@@ -378,15 +379,19 @@ class NAFF_Buffer(Buffer):
 
         # Computing normalized coordinates
         #--------------------------
-        XX_n   = [xPlus.W_phys2norm(_x,_px,_y,_py,_zeta,_pzeta,W_matrix=self.W_matrix,particle_on_co=self.particle_on_co) for (_x,_px,_y,_py,_zeta,_pzeta) in zip(x,px,y,py,zeta,pzeta)]
-        XX_sig = [xPlus.norm2sigma(_XX_n[0,:],_XX_n[1,:],_XX_n[2,:],_XX_n[3,:],_XX_n[4,:],_XX_n[5,:],nemitt_x= self.nemitt_x, nemitt_y= self.nemitt_y, nemitt_zeta= self.nemitt_zeta, particle_on_co=self.particle_on_co) for _XX_n in XX_n]
+        XX_sig = xPlus._W_phys2norm(x,px,y,py,zeta,pzeta, 
+                                        W_matrix    = self.twiss.W_matrix,
+                                        co_dict     = self.twiss.particle_on_co.copy(_context=xo.context_default).to_dict(), 
+                                        nemitt_x    = self.nemitt_x, 
+                                        nemitt_y    = self.nemitt_y, 
+                                        nemitt_zeta = self.nemitt_zeta)
 
-        x_sig       = [_XX_sig[0,:] for _XX_sig in XX_sig]
-        px_sig      = [_XX_sig[1,:] for _XX_sig in XX_sig]
-        y_sig       = [_XX_sig[2,:] for _XX_sig in XX_sig]
-        py_sig      = [_XX_sig[3,:] for _XX_sig in XX_sig]
-        zeta_sig    = [_XX_sig[4,:] for _XX_sig in XX_sig]
-        pzeta_sig   = [_XX_sig[5,:] for _XX_sig in XX_sig]
+        x_sig       = XX_sig[0,:,:]
+        px_sig      = XX_sig[1,:,:]
+        y_sig       = XX_sig[2,:,:]
+        py_sig      = XX_sig[3,:,:]
+        zeta_sig    = XX_sig[4,:,:]
+        pzeta_sig   = XX_sig[5,:,:]
 
 
         # Extracting the harmonics
