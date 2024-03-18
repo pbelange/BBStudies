@@ -8,6 +8,38 @@ import itertools
 import BBStudies.Physics.Constants as cst
 
 
+##############################################################
+def hypersphere(N, D, r=1, seed = 0, surface=False,unpack = False):
+    # Set the random seed for reproducibility
+    rng = np.random.default_rng(int(seed))
+
+    # Sample D vectors of N Gaussian coordinates
+    N = int(N)
+    D = int(D)
+    samples = rng.standard_normal(size = (N, D))
+    
+    # Normalise all distances (radii) to 1
+    radii = np.sqrt(np.sum(samples ** 2, axis=1))[:,np.newaxis]
+    samples = samples / radii
+    
+    # Sample N radii with exponential distribution (unless points are to be on the surface)
+    if not surface:
+        new_radii = np.random.uniform(low=0.0, high=1.0, size=(N, 1)) ** (1 / D)
+        samples = samples * new_radii
+    
+    # Scale the samples to the desired radius
+    if isinstance(r,list):
+        r = np.array(r)[np.newaxis,:]
+    elif isinstance(r,type(np.array([]))):
+        assert False, 'r should be float or list'
+    samples = samples * r
+    
+    if not unpack:
+        return samples
+    else:
+        return samples.T
+##############################################################
+    
 
 
 ##############################################################
