@@ -56,10 +56,18 @@ python -m ipykernel install --user --name $ENV_NAME --display-name "$ENV_NAME"
 # Install project package
 pip install -e ./
 
-# Install CERN packages
-#=========================================
+
 # Installing fortran and other compilers
 conda install compilers cmake
+if [ "$(uname)" == "Linux" ]; then
+    # Do something under Linux platform
+    conda install gcc_linux-64 gxx_linux-64
+fi
+# If needed, could add the same line for Mac eventually: conda install clang_osx-arm64 clangxx_osx-arm64
+
+
+# Install CERN packages
+#=========================================
 
 pip install cpymad
 
@@ -101,13 +109,13 @@ git submodule update
 
 # Downloading sequences
 cd ../../../
-wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhc.seq -P Machines/sequences/
-wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhcb4.seq -P Machines/sequences/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhc.seq -P BBStudies/Machines/sequences/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhcb4.seq -P BBStudies/Machines/sequences/
 
 # Downloading macro file
-wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/toolkit/macro.madx -P Machines/toolkit/
-wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/blob/2023/toolkit/slice.madx -P Machines/toolkit/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/toolkit/macro.madx -P BBStudies/Machines/toolkit/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/blob/2023/toolkit/slice.madx -P BBStudies/Machines/toolkit/
 
 # Downloading optics
-rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/opticsfile.*" ./Machines/optics/
-rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/README" ./Machines/optics/
+rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/opticsfile.*" BBStudies/Machines/optics/
+rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/README" BBStudies/Machines/optics/
