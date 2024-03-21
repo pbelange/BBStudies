@@ -22,7 +22,7 @@ import BBStudies.Physics.Constants as cst
 
 # Save to HTML
 #=====================================
-def export_HTML(LAYOUT,filename,tabname):
+def export_HTML(LAYOUT,filename,tabname='Bokeh - Figure'):
 
     bk.output_file(filename=filename, title=tabname)
     bk.save(LAYOUT)

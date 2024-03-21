@@ -1,12 +1,20 @@
 config_mad:
-    # Links to be made for tools and scripts
+    
+    # Path to save collider to
+    save_collider : colliders/collider_000.json
+    
+    # Links to be made for tools and scripts 
     links:
-      acc-models-lhc/optics   : /home/HPC/phbelang/abp/BBStudies/Machines/Optics
-      acc-models-lhc/toolkit  : /home/HPC/phbelang/abp/BBStudies/Machines/Toolkit
-      acc-models-lhc/sequences: /home/HPC/phbelang/abp/BBStudies/Machines/Sequences
+      acc-models-lhc/optics   : #leave blank for default
+      acc-models-lhc/toolkit  : #leave blank for default
+      acc-models-lhc/sequences: #leave blank for default
 
     # Optics file
     optics_file: acc-models-lhc/optics/opticsfile.32
+
+    # Number of slices
+    slice_factor : 4
+
 
     # Beam parameters
     beam_config:

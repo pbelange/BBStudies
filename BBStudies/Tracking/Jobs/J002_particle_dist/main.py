@@ -54,7 +54,7 @@ _bot_tab_height     = 500
 _default_fig_pad    = 100
 #=====================================
 
-def particles_to_HTML(particles,XX_sig,collider,config,nemitt,rfbucket,export_path):
+def particles_to_HTML(particles,coordinates,collider,config,nemitt,rfbucket,export_path):
 
     BOKEH_FIGS  = {}
     
@@ -67,12 +67,12 @@ def particles_to_HTML(particles,XX_sig,collider,config,nemitt,rfbucket,export_pa
     # Normalized space
     #=====================================
     data = pd.DataFrame({'particle' :particles.particle_id,
-                         'x_sig'    :XX_sig[0,:],
-                         'px_sig'   :XX_sig[1,:],
-                         'y_sig'    :XX_sig[2,:],
-                         'py_sig'   :XX_sig[3,:],
-                         'zeta_sig' :XX_sig[4,:],
-                         'pzeta_sig':XX_sig[5,:]})
+                         'x_sig'    :coordinates[0,:],
+                         'px_sig'   :coordinates[1,:],
+                         'y_sig'    :coordinates[2,:],
+                         'py_sig'   :coordinates[3,:],
+                         'zeta_sig' :coordinates[4,:],
+                         'pzeta_sig':coordinates[5,:]})
 
     BOKEH_FIGS['n x-y'] = bkpresets.make_scatter_fig(data,xy=('x_sig','y_sig'),title='x-y norm. transv. space',width=int(_default_fig_width/4.5)+adjustment,height=_bot_tab_height,padding=0)
     BOKEH_FIGS['n x-px'] = bkpresets.make_scatter_fig(data,xy=('x_sig','px_sig'),title='x norm. phase space',width=int(_default_fig_width/4.5),height=_bot_tab_height,padding=0)
@@ -159,7 +159,7 @@ def particles_to_HTML(particles,XX_sig,collider,config,nemitt,rfbucket,export_pa
     BOKEH_FIGS['zeta-pzeta'].yaxis.formatter = chatGPT_tick
 
 
-    color = 'lightseagreen'
+    color = 'mediumvioletred'
     ls    = 'solid'
     label = f'RF Bucket'
 
@@ -170,14 +170,14 @@ def particles_to_HTML(particles,XX_sig,collider,config,nemitt,rfbucket,export_pa
         zeta_vec,delta_vec = rfbucket.invariant(zcut,npoints = 1000)
 
         if zcut/sigma_z in [1,2,3]:
-            color = 'mediumvioletred'
+            color = 'black'
             ls    = 'dotted'
             label = f'σ'
         
-        line_top = BOKEH_FIGS['zeta-pzeta'].line(x=zeta_vec,y=delta_vec, line_width=2, color=color, alpha=0.2, line_dash=ls, legend_label=label)
-        line_bot = BOKEH_FIGS['zeta-pzeta'].line(x=zeta_vec,y=-delta_vec, line_width=2, color=color, alpha=0.2, line_dash=ls, legend_label=label)
-        line_top.level = 'underlay'
-        line_bot.level = 'underlay'
+        line_top = BOKEH_FIGS['zeta-pzeta'].line(x=zeta_vec,y=delta_vec, line_width=4, color=color, alpha=0.4, line_dash=ls, legend_label=label)
+        line_bot = BOKEH_FIGS['zeta-pzeta'].line(x=zeta_vec,y=-delta_vec, line_width=4, color=color, alpha=0.4, line_dash=ls, legend_label=label)
+        line_top.level = 'overlay'
+        line_bot.level = 'overlay'
 
 
     qp = bklay.gridplot([[BOKEH_FIGS['x-y'],BOKEH_FIGS['x-px'] ,BOKEH_FIGS['y-py'] ,BOKEH_FIGS['zeta-pzeta']]],toolbar_location='right')
@@ -230,6 +230,7 @@ def particles_to_HTML(particles,XX_sig,collider,config,nemitt,rfbucket,export_pa
                 'nemitt_x'              : f'{nemitt[0]:.3e}',
                 'nemitt_y'              : f'{nemitt[1]:.3e}',
                 'nemitt_zeta'           : f'{nemitt[2]:.3e}',
+                'r_scale'               : f'{config[config["particles"]["type"]]["r_scale"]}',
                 '--------------------'  : '--------------------',
                 'Collider' : Path(config['collider']['path']).stem,
                 'Sequence' : config['collider']['sequence'],
@@ -349,12 +350,12 @@ def particle_dist(config = None,config_path = 'config.yaml'):
     if config['particles']['type'] == 'hypersphere':
         coordinates = phys.hypersphere( N       = num_particles, 
                                         D       = 6, 
-                                        r       = [ mtd_config['rx_sig'],
-                                                    mtd_config['rx_sig'],
-                                                    mtd_config['ry_sig'],
-                                                    mtd_config['ry_sig'],
-                                                    mtd_config['rzeta_sig'],
-                                                    mtd_config['rzeta_sig']], 
+                                        r       = [ mtd_config['r_scale'][0],
+                                                    mtd_config['r_scale'][1],
+                                                    mtd_config['r_scale'][2],
+                                                    mtd_config['r_scale'][3],
+                                                    mtd_config['r_scale'][4],
+                                                    mtd_config['r_scale'][5]],
                                         seed    = mtd_config['seed'], 
                                         unpack  = True)
     
@@ -375,7 +376,10 @@ def particle_dist(config = None,config_path = 'config.yaml'):
     #==============================
 
                     
-        
+
+    condition = (np.abs(coordinates[0,:]-2)<2)
+    coordinates = coordinates[:,condition]
+
     
     # Generating xsuite particles
     particles = xp.build_particles( line        = line,
@@ -409,13 +413,25 @@ def particle_dist(config = None,config_path = 'config.yaml'):
 
     # Exporting
     export_path = config['particles']['path'] + f'/{config["particles"]["name"]}.parquet'
-    data = pd.DataFrame({'particle':particles.particle_id,'x':particles.x,'px':particles.px,'y':particles.y,'py':particles.py,'zeta':particles.zeta,'pzeta':particles.pzeta})
+    data = pd.DataFrame({'particle':particles.particle_id,  'x'     : particles.x,
+                                                            'px'    : particles.px,
+                                                            'y'     : particles.y,
+                                                            'py'    : particles.py,
+                                                            'zeta'  : particles.zeta,
+                                                            'pzeta' : particles.pzeta,
+                                                            'x_norm'    : coordinates[0,:],
+                                                            'px_norm'   : coordinates[1,:],
+                                                            'y_norm'    : coordinates[2,:],
+                                                            'py_norm'   : coordinates[3,:],
+                                                            'zeta_norm' : coordinates[4,:],
+                                                            'pzeta_norm': coordinates[5,:],
+                                                            })
     data.to_parquet(export_path)
 
 
     # Plotting:
     export_path = config['particles']['path'] + f'/VIEWER_{config["particles"]["name"]}.html'
-    particles_to_HTML(particles,XX_sig,collider,config,[nemitt_x,nemitt_y,nemitt_zeta],rfbucket,export_path)
+    particles_to_HTML(particles,coordinates,collider,config,[nemitt_x,nemitt_y,nemitt_zeta],rfbucket,export_path)
     #==============================
 
 

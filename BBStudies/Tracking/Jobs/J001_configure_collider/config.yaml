@@ -1,10 +1,10 @@
 
 
 # Collider file
-from_collider: /home/HPC/phbelang/abp/BBStudies/study_signature/colliders/collider_000.json
+from_collider: colliders/collider_000.json
 
 # Save out collider
-save_collider: /home/HPC/phbelang/abp/BBStudies/study_signature/colliders/collider_001.json
+save_collider: colliders/collider_001.json
 
 
 # Log
@@ -52,11 +52,14 @@ config_collider:
       # RF voltage and phases
       vrf400: 12.0 # [MV]
       lagrf400.b1: 0.5 # [rad]
-      lagrf400.b2: 0.5 # [rad]
+      lagrf400.b2: 0. # [rad]
 
       # Octupoles
       i_oct_b1: 430. # [A]
       i_oct_b2: 430. # [A]
+
+      
+
 
     closed_orbit_correction:
       lhcb1: _correction/corr_co_lhcb1.json
@@ -108,15 +111,37 @@ config_collider:
       ip8: 0
     sigma_z: 0.09
     num_particles_per_bunch: 1.4e11
-    nemitt_x: 1.8e-6
-    nemitt_y: 1.8e-6
+    nemitt_x: 3.5e-6
+    nemitt_y: 3.5e-6
     mask_with_filling_pattern:
-      pattern_fname: ../../../FillingSchemes/specific_MD8043.json
-      i_bunch_b1: 224 # If not specified, the bunch with the worst schedule is chosen
-      i_bunch_b2: 224 # Same. A value for i_bunch_b1 and i_bunch_b2 must be specified if pattern_fname is specified
+      # Can be given relative to BBStudies project folder
+      pattern_fname: Machines/FillingSchemes/specific_MD8043.json
+      i_bunch_b1: 200 # If not specified, the bunch with the worst schedule is chosen
+      i_bunch_b2: 200 # Same. A value for i_bunch_b1 and i_bunch_b2 must be specified if pattern_fname is specified
 
-
-
+  # Wire Compensators
+  #====================
+  config_bbcw:
+    # Beam 1
+    b1:
+      ip1:
+        current   : 350      # [A]
+        distance  : 9.2e-3   # [m]
+      ip5:
+        current   : 350      # [A]
+        distance  : 12.4e-3   # [m]
+      qff_file    : null       # filepath to a collider file
+    # Beam 2
+    b2:
+      ip1:
+        current   : 0          # [A]
+        distance  :            # [m]
+      ip5:
+        current   : 0          # [A]
+        distance  :             # [m]
+        
+    qff_file    : null       # filepath to a collider file
+  #====================
 
   skip_leveling: true
   config_lumi_leveling_ip1_5:

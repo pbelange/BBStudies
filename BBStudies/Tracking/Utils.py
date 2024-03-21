@@ -13,6 +13,15 @@ import xobjects as xo
 
 
 #============================================================
+def read_metadata(file):
+    with open(file, 'r') as fid:
+        dct = json.load(fid)
+    return dct['metadata']
+#============================================================
+
+
+
+#============================================================
 def read_YAML(file="config.yaml"):
     ryaml = ruamel.yaml.YAML()
     # Read configuration for simulations

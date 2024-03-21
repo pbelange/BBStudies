@@ -1,13 +1,13 @@
 config_mad:
     
     # Path to save collider to
-    save_collider : /home/HPC/phbelang/abp/BBStudies/study_signature/colliders/collider_000.json
+    save_collider : colliders/collider_000.json
     
-    # Links to be made for tools and scripts
+    # Links to be made for tools and scripts (leave blank for default)
     links:
-      acc-models-lhc/optics   : ../Machines/Optics
-      acc-models-lhc/toolkit  : ../Machines/Toolkit
-      acc-models-lhc/sequences: ../Machines/Sequences
+      acc-models-lhc/optics   : 
+      acc-models-lhc/toolkit  : 
+      acc-models-lhc/sequences: 
 
     # Optics file
     optics_file: acc-models-lhc/optics/opticsfile.32

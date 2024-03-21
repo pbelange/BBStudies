@@ -15,7 +15,7 @@ from pathlib import Path
 # Import user-defined optics-specific tools
 import BBStudies.Tracking.Jobs.J000_collider_from_mad.job_specific_tools as ost
 import BBStudies.Tracking.Utils as xutils
-
+import BBStudies.Machines as Machines
 
 
 
@@ -32,6 +32,8 @@ def load_configuration(config_path="config.yaml"):
     config_mad = configuration["config_mad"]
 
     return configuration, config_mad
+
+
 
 
 
@@ -139,8 +141,20 @@ def clean():
 # --- Main function for building distribution and collider
 # ==================================================================================================
 def build_collider(config_file="config.yaml"):
+    
+    # Error if arm64:
+    import platform
+    assert (platform.uname().machine) != 'arm64', 'This Job cannot be run on arm64 architecture, will throw |sh: errors/HL-LHC/corr_MB_ats_v4: cannot execute binary file|'
+
+
     # Get configuration
     configuration, config_mad = load_configuration(config_file)
+
+    # update paths
+    for link in ['optics','toolkit','sequences']:
+        if config_mad['links']['acc-models-lhc/' + link] is None:
+            config_mad['links']['acc-models-lhc/' + link] =  str(Path(Machines.__file__).parents[0]/link)
+
 
     # Get sanity checks flag
     sanity_checks = configuration["sanity_checks"]

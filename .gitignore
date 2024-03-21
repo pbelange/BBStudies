@@ -18,9 +18,9 @@ __pycache__/
 
 
 # Only keep filling schemes from Machines
-Machines/**
-!Machines/FillingSchemes/
-!Machines/FillingSchemes/*.json
+BBStudies/Machines/**
+!BBStudies/Machines/FillingSchemes/
+!BBStudies/Machines/FillingSchemes/*.json
 
 # Ignore everything in the studies directory
 studies/*

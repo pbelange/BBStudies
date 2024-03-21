@@ -14,10 +14,8 @@ import xmask as xm
 
 import BBStudies
 from  BBStudies.Tracking.Jobs.J001_configure_collider.job_specific_tools import generate_orbit_correction_setup,luminosity_leveling, luminosity_leveling_ip1_5, compute_PU
+import BBStudies.Tracking.Jobs.J001_configure_collider.bbcw_utils as bbcw_utils
 import BBStudies.Tracking.Utils as xutils
-
-
-
 
 
 
@@ -420,6 +418,9 @@ def configure_collider(config_file = 'config.yaml'):
     if not Path(pattern_fname).exists():
         pattern_fname = str(Path(BBStudies.__file__).parents[1]/pattern_fname)
     #-------------------
+        
+    # Install BBCW
+    collider = bbcw_utils.install_BBCW(collider,L_phy=1,L_int=2)
 
     # Install beam-beam
     collider, config_bb = install_beam_beam(collider, config_collider)
@@ -486,13 +487,15 @@ def configure_collider(config_file = 'config.yaml'):
         collider = configure_beam_beam(collider, config_bb,pattern_fname=pattern_fname)
 
 
+    # Power BBCW
+    collider,qff_knobs = bbcw_utils.power_BBCW(collider,config)
+    collider.metadata['qff_knobs'] = qff_knobs
+
 
     # Update configuration with luminosity now that bb is known
     l_n_collisions  = [n_collisions_ip1_and_5, n_collisions_ip2, n_collisions_ip1_and_5, n_collisions_ip8]
     config_collider = record_final_luminosity(collider,config_collider, l_n_collisions, crab)
     config['config_collider'] = config_collider
-
-
 
 
     # Saving resulting collider

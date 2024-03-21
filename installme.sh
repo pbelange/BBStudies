@@ -47,7 +47,6 @@ pip install ipympl
 pip install ruamel.yaml
 pip install rich
 pip install lfm
-pip install nafflib
 pip install pytest
 pip install twine
 
@@ -63,6 +62,9 @@ pip install -e ./
 conda install compilers cmake
 
 pip install cpymad
+
+git clone https://github.com/pbelange/nafflib.git ./Executables/$ENV_NAME/nafflib
+pip install -e ./Executables/$ENV_NAME/nafflib
 
 git clone https://github.com/lhcopt/lhcmask.git ./Executables/$ENV_NAME/lhcmask
 pip install -e ./Executables/$ENV_NAME/lhcmask
@@ -99,13 +101,13 @@ git submodule update
 
 # Downloading sequences
 cd ../../../
-wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhc.seq -P Machines/Sequences/
-wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhcb4.seq -P Machines/Sequences/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhc.seq -P Machines/sequences/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/lhcb4.seq -P Machines/sequences/
 
 # Downloading macro file
-wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/toolkit/macro.madx -P Machines/Toolkit/
-wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/blob/2023/toolkit/slice.madx -P Machines/Toolkit/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/raw/2023/toolkit/macro.madx -P Machines/toolkit/
+wget https://gitlab.cern.ch/acc-models/acc-models-lhc/-/blob/2023/toolkit/slice.madx -P Machines/toolkit/
 
 # Downloading optics
-rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/opticsfile.*" ./Machines/Optics/
-rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/README" ./Machines/Optics/
+rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/opticsfile.*" ./Machines/optics/
+rsync -rv phbelang@lxplus.cern.ch:"/afs/cern.ch/eng/lhc/optics/runIII/RunIII_dev/Proton_2022/README" ./Machines/optics/
