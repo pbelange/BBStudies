@@ -19,6 +19,7 @@ __pycache__/
 
 # Only keep filling schemes from Machines
 BBStudies/Machines/**
+!BBStudies/Machines/__init__.py
 !BBStudies/Machines/FillingSchemes/
 !BBStudies/Machines/FillingSchemes/*.json
 
