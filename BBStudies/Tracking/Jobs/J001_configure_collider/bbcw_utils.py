@@ -108,12 +108,6 @@ def power_BBCW(collider,config):
     for beam_name in ['b1','b2']:
         wire_dict = config_bbcw[f'{beam_name}'] 
         
-        # Skip if not powered
-        #--------------------------------
-        if (wire_dict['ip1']['current'] == 0) and (wire_dict['ip5']['current'] == 0): 
-            continue
-
-
         # Aligning the wires:
         #--------------------------------
         line    = collider[f'lhc{beam_name}']
@@ -149,23 +143,29 @@ def power_BBCW(collider,config):
         # Powering the wires one-by-one:
         #-----------------------------------
         for ip in ['ip1','ip5']:
+
             collider.vars[f'i_wire_{ip}.{beam_name}'] = wire_dict[ip]['current']
 
             # assert no change on closed orbit
             ttt = opt[ip].target_status(ret=True)
             assert np.all(ttt['tol_met'][[('co_wire' in t) for t in ttt['tag']]]), 'Wires seems misaligned!'
 
-            # If the Q4 strenghts are forced, deactivate them from the opt. and set the value
+            
             if config_bbcw['qff_file'] is not None:
+                # If the Q4 strenghts are forced set the values
                 #---------
-                opt[ip].disable_vary(tag=f'quad_{ip}')
+                for _knob,_value in force_knobs[beam_name][ip].items():
+                    collider.vars[_knob] = _value
                 #---------
-                for _knob in [_knob.name for _knob in opt[ip].vary if _knob.tag == f'quad_{ip}']:
-                    collider.vars[_knob] = force_knobs[beam_name][_knob]
+                # Reading the knob values if
+                opt[ip].vary_status()
 
+            else:
                 
-            # Matching
-            opt[ip].solve()
+                # Matching
+                opt[ip].solve()
 
-    qff_knobs[beam_name] = {**opt['ip1'].get_knob_values(), **opt['ip5'].get_knob_values()}
+            
+        qff_knobs[beam_name] = {'ip1':{v.name:collider.vars[v.name]._value for v in opt['ip1'].vary}, 
+                                'ip5':{v.name:collider.vars[v.name]._value for v in opt['ip5'].vary}}
     return collider,qff_knobs
