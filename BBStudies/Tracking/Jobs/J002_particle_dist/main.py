@@ -331,13 +331,7 @@ def particle_dist(config = None,config_path = 'config.yaml'):
 
     # # Computing RF bucket emittance
     rfbucket    = xPlus.RFBucket(line)
-    # nemitt_zeta = 2*1e-2*rfbucket.compute_emittance(sigma_z=sigma_z)
-    _twiss = line.twiss(method='6d')
-    twiss_init = _twiss.get_twiss_init(at_element=ee_at_dict[cycle_at])
-    co_dict    = twiss_init.particle_on_co.copy(_context=xo.context_default).to_dict()
-    WW      = twiss_init.W_matrix
-    betzeta = WW[4, 4]**2 + WW[4, 5]**2
-    nemitt_zeta = ((sigma_z**2/betzeta) * (co_dict['beta0'] * co_dict['gamma0']))[0]
+    nemitt_zeta = rfbucket.compute_emittance(sigma_z=sigma_z)
     #==============================
 
     # Generating particles

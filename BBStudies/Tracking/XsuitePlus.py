@@ -490,7 +490,12 @@ class RFBucket(xp.longitudinal.rf_bucket.RFBucket):
         dct_longitudinal['gamma'] = line.particle_ref.gamma0[0]
         dct_longitudinal['mass_kg'] = line.particle_ref.mass0/(cst.c**2)*cst.elec
         dct_longitudinal['charge_coulomb'] = np.abs(line.particle_ref.q0)*cst.elec
-        dct_longitudinal['momentum_compaction_factor'] = line.twiss()['momentum_compaction_factor']
+        
+        _twiss = line.twiss(method='6d')
+        dct_longitudinal['momentum_compaction_factor'] = _twiss['momentum_compaction_factor']
+
+        self.W_matrix = _twiss.W_matrix[0]
+        self.particle_on_co = _twiss.particle_on_co.copy(_context=xo.context_default)
 
         super().__init__(circumference      = dct_longitudinal['circumference'],
                             gamma           = dct_longitudinal['gamma'],
@@ -514,11 +519,13 @@ class RFBucket(xp.longitudinal.rf_bucket.RFBucket):
     
     
     def compute_emittance(self,sigma_z = 0.09):
-        matcher = xp.longitudinal.rfbucket_matching.RFBucketMatcher(rfbucket            = self, 
-                                                                    distribution_type   = xp.longitudinal.rfbucket_matching.ThermalDistribution,
-                                                                    sigma_z             = sigma_z)
-        _,_, _, _ = matcher.generate(macroparticlenumber=1)
-        return matcher._compute_emittance(matcher.rfbucket,matcher.psi)
+
+        co_dict = self.particle_on_co.to_dict()
+        WW      = self.W_matrix
+        betzeta = WW[4, 4]**2 + WW[4, 5]**2
+        nemitt_zeta = ((sigma_z**2/betzeta) * (co_dict['beta0'] * co_dict['gamma0']))[0]
+
+        return nemitt_zeta
 #====================================
 
 

@@ -286,6 +286,10 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
                                 collider_name    = config['tracking']['collider']['name'],
                                 distribution_name= config['tracking']['particles']['name'])
 
+    # Optimizing for tracking and then starting:
+    #-------------------------------
+    line.optimize_for_tracking()
+    #-------------------------------
     PBar.start()
     try:
         ID_length = len(str(len(chunks)))
