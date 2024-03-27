@@ -14,8 +14,8 @@ import BBStudies.Tracking.Jobs as Jobs
 def run_jobs(user_context = 'GPU', device_id = 0):
     # Load Config
     #-------------------------
-    config_file = 'configs/config_J002.yaml'
-    tmp_file    = 'configs/tmp_config_J002_{user_context}_{device_id}.yaml'
+    config_file = 'configs/config_J003.yaml'
+    tmp_file    = 'configs/tmp_config_J003_{user_context}_{device_id}.yaml'
     #-------------------------
 
     # Choose collider file from device_id
@@ -94,7 +94,7 @@ def run_jobs(user_context = 'GPU', device_id = 0):
     # Running Jop
     #====================================
     print(f'RUNNING FILE: {tmp_file}')
-    subprocess.run(["python", f"{Jobs.JOBS['J002']}/main.py","-c", f"{tmp_file}"])
+    subprocess.run(["python", f"{Jobs.JOBS['J003']}/main.py","-c", f"{tmp_file}"])
     # subprocess.run(["python", f"{Jobs.JOBS['J004']}/main.py",   "--data_path"       , f"{config['tracking']['data_path']}",
     #                                                             "--checkpoint_path" , f"{config['tracking']['checkpoint_path']}",
     #                                                             "--partition_name"  , f"{config['tracking']['partition_name']}",

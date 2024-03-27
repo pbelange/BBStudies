@@ -256,6 +256,8 @@ class Excursion_Buffer(Buffer):
         self.data['x_max'] = []
         self.data['y_min'] = []
         self.data['y_max'] = []
+        self.data['zeta_min'] = []
+        self.data['zeta_max'] = []
         self.data['skew_min'] = []
         self.data['skew_max'] = []
 
@@ -271,6 +273,7 @@ class Excursion_Buffer(Buffer):
 
         x    = monitor.x
         y    = monitor.y
+        zeta = monitor.zeta
          
         # Rotating for skew collimator
         #-------------------------
@@ -294,11 +297,16 @@ class Excursion_Buffer(Buffer):
         y_max = y[idx_list,idx_max]
         y_min = y[idx_list,idx_min]
 
+        # Zeta ----------
+        idx_max = np.argmax(zeta,axis=1)
+        idx_min = np.argmin(zeta,axis=1)
+        zeta_max = zeta[idx_list,idx_max]
+        zeta_min = zeta[idx_list,idx_min]
 
         # Skew ----------
         skew_max = np.max(x_skew,axis=1)
         skew_min = np.min(x_skew,axis=1)
-
+        
 
         # Appending to data
         #-------------------------
@@ -312,6 +320,8 @@ class Excursion_Buffer(Buffer):
         self.data['x_max'].append(x_max)
         self.data['y_min'].append(y_min)
         self.data['y_max'].append(y_max)
+        self.data['zeta_min'].append(zeta_min)
+        self.data['zeta_max'].append(zeta_max)
         self.data['skew_min'].append(skew_min)
         self.data['skew_max'].append(skew_max)
         #-------------------------

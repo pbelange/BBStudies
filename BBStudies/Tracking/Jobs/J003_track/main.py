@@ -27,7 +27,7 @@ import BBStudies.Physics.Base as phys
 # ==================================================================================================
 # --- Functions to load collider with a given context
 # ==================================================================================================
-def load_collider(collider_path = '../001_configure_collider/zfruits/collider_001.json',user_context = 'CPU',device_id = 0):
+def load_collider(collider_path = 'colliders/collider_001.json',user_context = 'CPU',device_id = 0):
 
 
     collider = xt.Multiline.from_json(collider_path)
