@@ -332,6 +332,8 @@ def particle_dist(config = None,config_path = 'config.yaml'):
     # # Computing RF bucket emittance
     rfbucket    = xPlus.RFBucket(line)
     nemitt_zeta = rfbucket.compute_emittance(sigma_z=sigma_z)
+    _twiss = line.twiss(method='6d')
+    twiss_init = _twiss.get_twiss_init(at_element=ee_at_dict[cycle_at])
     #==============================
 
     # Generating particles
