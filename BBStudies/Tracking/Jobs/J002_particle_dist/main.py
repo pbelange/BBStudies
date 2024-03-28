@@ -372,10 +372,6 @@ def particle_dist(config = None,config_path = 'config.yaml'):
     #==============================
 
                     
-
-    condition = (np.abs(coordinates[0,:]-2)<2)
-    coordinates = coordinates[:,condition]
-
     
     # Generating xsuite particles
     particles = xp.build_particles( line        = line,
