@@ -27,7 +27,7 @@ import BBStudies.Physics.Base as phys
 # ==================================================================================================
 # --- Functions to load collider with a given context
 # ==================================================================================================
-def load_collider(collider_path = 'colliders/collider_001.json',user_context = 'CPU',device_id = 0):
+def load_collider(collider_path = 'colliders/collider_001.json',user_context = 'CPU',device_id = None):
 
 
     collider = xt.Multiline.from_json(collider_path)
@@ -47,22 +47,23 @@ def load_collider(collider_path = 'colliders/collider_001.json',user_context = '
 # ==================================================================================================
 # --- Functions to generate particle distribution
 # ==================================================================================================
-def generate_particles(from_path,line,nemitt_x = None,nemitt_y = None,_context = None):
+def generate_particles(from_path,line,nemitt_x = None,nemitt_y = None,nemitt_zeta = None,_context = None):
     # Loading normalized coordinates
     # coord_df = xutils.import_parquet(from_path)
     coord_df = pd.read_parquet(from_path)
     
-    # Generating xsuite particles
-    particles = xp.build_particles( line        = line,
-                                    x_norm      = coord_df.x_sig.values,
-                                    px_norm     = coord_df.px_sig.values,
-                                    y_norm      = coord_df.y_sig.values,
-                                    py_norm     = coord_df.py_sig.values,
-                                    zeta        = coord_df.zeta.values,
-                                    delta       = coord_df.delta.values,
-                                    nemitt_x    = nemitt_x, nemitt_y=nemitt_y,
-                                    _context    =_context)
     
+    particles = xp.build_particles( line        = line,
+                                    x_norm      = coord_df.x_norm.values,
+                                    px_norm     = coord_df.px_norm.values,
+                                    y_norm      = coord_df.y_norm.values,
+                                    py_norm     = coord_df.py_norm.values,
+                                    zeta_norm   = coord_df.zeta_norm.values,
+                                    pzeta_norm  = coord_df.pzeta_norm.values,
+                                    nemitt_x    = nemitt_x, 
+                                    nemitt_y    = nemitt_y,
+                                    nemitt_zeta = nemitt_zeta,
+                                    _context    = _context)
     return particles
 
 
@@ -188,6 +189,7 @@ def particle_dist_and_track(config = None,config_path = 'config.yaml'):
                                     line        = line,
                                     nemitt_x    = nemitt_x,
                                     nemitt_y    = nemitt_y,
+                                    nemitt_zeta = nemitt_zeta,
                                     _context    = context) 
     #==============================
 
