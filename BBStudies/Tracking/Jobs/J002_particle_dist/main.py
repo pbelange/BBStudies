@@ -230,7 +230,7 @@ def particles_to_HTML(particles,coordinates,collider,config,nemitt,rfbucket,expo
                 'nemitt_x'              : f'{nemitt[0]:.3e}',
                 'nemitt_y'              : f'{nemitt[1]:.3e}',
                 'nemitt_zeta'           : f'{nemitt[2]:.3e}',
-                'r_scale'               : f'{config[config["particles"]["type"]]["r_scale"]}',
+                'parameters'            : f'{config[config["particles"]["type"]]}',
                 '--------------------'  : '--------------------',
                 'Collider' : Path(config['collider']['path']).stem,
                 'Sequence' : config['collider']['sequence'],
