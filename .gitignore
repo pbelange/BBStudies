@@ -1,9 +1,9 @@
+# General exclusions
 Executables/**
 .ipynb_checkpoints/
 __pycache__/
 *.c
 *.o
-*.json
 .DS_Store
 *.html
 *.pkl
@@ -12,21 +12,18 @@ __pycache__/
 *.pyo
 *.pyd
 *.egg-info/
+*.json  # Excludes JSON files globally, consider removing if JSON files should not be globally ignored
 
-# Keeping example colliders
-# !examples/run_xmask_jobs/colliders/*.json
+# Specific rules for examples directory
 !examples/run_xmask_jobs_prebaked/colliders/*.json
 
-
-# Only keep filling schemes from Machines
+# Include everything from BBStudies/Machines, excluding .seq files
 BBStudies/Machines/**
-!BBStudies/Machines/__init__.py
-!BBStudies/Machines/fillingschemes/
-!BBStudies/Machines/fillingschemes/*.json
-!BBStudies/Machines/optics/
-!BBStudies/Machines/optics/*
-!BBStudies/Machines/toolkit/
-!BBStudies/Machines/toolkit/*
+!BBStudies/Machines/
+!BBStudies/Machines/**/*
+BBStudies/Machines/**/*.seq
+
+
 
 # Ignore everything in the studies directory
 studies/*
