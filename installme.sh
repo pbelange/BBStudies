@@ -39,7 +39,7 @@ pip install ipywidgets
 pip install PyYAML
 pip install pyarrow
 pip install pandas
-pip install dask
+pip install dask==2024.2.1
 pip install bokeh
 pip install matplotlib
 pip install scipy

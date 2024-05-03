@@ -66,14 +66,14 @@ def make_LHC_Layout_Fig(collider,twiss,width=2000,height=400):
         bblr_info   = bktools.extract_bblr_info(collider[sequence],twiss[sequence])
         considered_strength.append(bblr_info.strength_x.abs().max())
         considered_strength.append(bblr_info.strength_y.abs().max())
-    ref_bblr = np.max(considered_strength)
+    # ref_bblr = np.max(considered_strength)
 
     # Include BBHO in same reference
     # considered_strength = []
     for sequence in ['lhcb1','lhcb2']:
         bbho_info   = bktools.extract_bbho_info(collider[sequence],twiss[sequence])
-        considered_strength.append(bblr_info.strength_x.abs().max())
-        considered_strength.append(bblr_info.strength_y.abs().max())
+        considered_strength.append(bbho_info.strength_x.abs().max())
+        considered_strength.append(bbho_info.strength_y.abs().max())
     ref_bb = np.max(considered_strength)
 
     # Iterating over beams

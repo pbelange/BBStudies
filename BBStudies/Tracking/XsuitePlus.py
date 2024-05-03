@@ -115,8 +115,12 @@ class Poincare_Section():
                 complex_columns = None
             
             # Loading data from parquet
-            partition_dict['data'] = key
-            _df = xutils.import_parquet_datafile(path,partition_dict = partition_dict,complex_columns=complex_columns)
+            # partition_dict['data'] = key
+            # _df = xutils.import_parquet_datafile(path,partition_dict = partition_dict,complex_columns=complex_columns)
+            partition_dict = {'data':key}
+            _df = xutils.import_parquet_datafile(f'{path}/collider={collider_name}/distribution={distribution_name}/at_element={name}',
+                                                    partition_dict = partition_dict,
+                                                    complex_columns=complex_columns)
 
             # Converting to coordinate table if needed
             if key in ['checkpoints','tbt']:
