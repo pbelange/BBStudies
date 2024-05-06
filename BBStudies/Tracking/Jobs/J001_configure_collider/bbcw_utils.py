@@ -119,8 +119,8 @@ def power_BBCW(collider,config):
 
             # updating knobs
             collider.vars[f'd_wire_{ip}.{beam_name}']    = wire_dict[ip]['distance']
-            collider.vars[f'co_x_wire_{ip}.{beam_name}'] = tw_tct.x
-            collider.vars[f'co_y_wire_{ip}.{beam_name}'] = tw_tct.y
+            collider.vars[f'co_x_wire_{ip}.{beam_name}'] = tw_tct.x[0]
+            collider.vars[f'co_y_wire_{ip}.{beam_name}'] = tw_tct.y[0]
             target_co.append(xt.TargetSet(  x = tw_tct.x[0],
                                             y = tw_tct.y[0], at=_at, tol=1e-6,tag=f'co_wire_{ip}'))
             
