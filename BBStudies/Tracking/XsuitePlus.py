@@ -18,6 +18,36 @@ import BBStudies.Tracking.Utils as xutils
 import BBStudies.Physics.Constants as cst
 
 
+# Adding to_pandas method to monitors:
+#==============================
+def pandas_monitor(self):
+    
+    extract_columns = ['at_turn','particle_id','x','px','y','py','zeta','pzeta','state']
+
+    _df_tbt = self.data.to_pandas()
+
+    _df_tbt.insert(list(_df_tbt.columns).index('zeta'),'pzeta',_df_tbt['ptau']/_df_tbt['beta0'])
+    _df_tbt = _df_tbt[extract_columns].rename(columns={"at_turn": "turn",'particle_id':'particle'})
+
+    return _df_tbt
+xt.ParticlesMonitor.to_pandas = pandas_monitor
+#==============================
+
+# Adding reset method to monitors:
+#==============================
+def reset_monitor(self,start_at_turn = None,stop_at_turn = None):
+    if start_at_turn is not None:
+        self.start_at_turn = start_at_turn
+    if stop_at_turn is not None:
+        self.stop_at_turn = stop_at_turn
+    
+    with self.data._bypass_linked_vars():
+            for tt, nn in self._ParticlesClass.per_particle_vars:
+                getattr(self.data, nn)[:] = 0
+
+xt.ParticlesMonitor.reset = reset_monitor
+#==============================
+
 
 class Poincare_Section():
     def __init__(self,name=None,twiss = None,tune_on_co=None,nemitt_x=None,nemitt_y=None,nemitt_zeta=None):

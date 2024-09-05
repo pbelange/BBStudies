@@ -181,7 +181,7 @@ class GIF():
         #return 1
         
 
-    def publish(self,keepframes=False):
+    def publish(self,keepframes=False,as_video=False):
         if self.ispublished:
             return None
         self.ispublished = True
@@ -202,7 +202,14 @@ class GIF():
         #=============================
 
         gif = mplAnim.ArtistAnimation(fig, frame_list)
-        gif.save(self.filename, fps=self.fps,dpi=self.dpi)
+        
+        if as_video:
+            FFwriter = mplAnim.FFMpegWriter(fps=self.fps,bitrate=int(self.dpi*10))
+            gif.save(self.filename.replace('.gif','.mp4'), writer = FFwriter,dpi=self.dpi)
+        else:
+            gif.save(self.filename, fps=self.fps,dpi=self.dpi)
+
+        
         
         plt.close()
         if not keepframes:
