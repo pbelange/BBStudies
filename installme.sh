@@ -101,11 +101,17 @@ pip install -e ./Executables/$ENV_NAME/FillingPatterns
 git clone https://gitlab.cern.ch/mrufolo/fillingstudies.git ./Executables/$ENV_NAME/fillingstudies
 pip install -e ./Executables/$ENV_NAME/fillingstudies
 
+# final xsuite installation below
+
 # Download outsourced files
 #=========================================
 cd ./Executables/$ENV_NAME/xmask
 git submodule init
 git submodule update
+
+git clone https://github.com/xsuite/xsuite ./Executables/$ENV_NAME/xsuite
+pip install -e ./Executables/$ENV_NAME/xsuite
+xsuite-prebuild regenerate
 
 # Downloading sequences
 cd ../../../
