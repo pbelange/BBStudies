@@ -126,6 +126,38 @@ def polarmesh(x,y,r,theta,*args,**kwargs):
 
 
 #############################################################
+def polar_grid(rho_ticks=None,phi_ticks=None,**kwargs):
+    _xlim = plt.gca().get_xlim()
+    _ylim = plt.gca().get_ylim()
+    _default_kwargs = {'alpha':0.5,'color':'grey','linestyle':'-','lw':1}
+    _default_kwargs.update(kwargs)
+
+
+    # Add circle patches
+    #====================================
+    if rho_ticks is not None:
+
+        lowest_zorder = min([obj.get_zorder() for obj in plt.gca().get_children()])
+        _tvec = np.linspace(0,2*np.pi,100)
+        for rho in rho_ticks:
+            plt.gca().add_patch(plt.Circle((0, 0), rho,fill=False,zorder=lowest_zorder-1, **_default_kwargs)) 
+
+    # Add angle lines
+    #====================================
+    if phi_ticks is not None:
+        
+        lowest_zorder = min([obj.get_zorder() for obj in plt.gca().get_children()])
+        for phi in phi_ticks:
+            _rmax = 2*np.max([np.abs(_xlim),np.abs(_ylim)])
+            plt.plot([0,_rmax*np.cos(phi)],[0,_rmax*np.sin(phi)],zorder=lowest_zorder-1, **_default_kwargs)
+
+
+    plt.xlim(_xlim)
+    plt.ylim(_ylim)
+#############################################################
+
+
+#############################################################
 def FFT(x,*args,flipped=False,unpack=False,**kwargs):
     x     = np.array(x)
     turns = np.arange(1,len(x)+1)

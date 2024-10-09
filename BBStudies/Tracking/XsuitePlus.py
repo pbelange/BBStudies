@@ -49,6 +49,54 @@ xt.ParticlesMonitor.reset = reset_monitor
 #==============================
 
 
+
+# Linear connector between elements
+#====================================================================================================
+def linear_connector(_from,_to,_twiss,qx=0,qy=0,length=0):
+
+    if type(_to) is dict:
+        keys = [k for k in xt.LineSegmentMap._xofields.keys() if (k in _twiss.keys()) or (k.split('_')[0] in _twiss.keys())]
+        kwargs = {}
+        for key in keys:
+            if key not in _twiss.keys():
+                _key = key.split('_')[0]
+            else:
+                _key = key
+            if key in _to.keys():            
+                kwargs[key] = [_twiss.rows[_from][_key][0],_to[_key]]
+            else:
+                kwargs[key] = [_twiss.rows[_from][_key][0],0]
+        return xt.LineSegmentMap(qx=qx,qy=qy,length=length,**kwargs)
+    
+    elif type(_from) is dict:
+        keys = [k for k in xt.LineSegmentMap._xofields.keys() if (k in _twiss.keys()) or (k.split('_')[0] in _twiss.keys())]
+        kwargs = {}
+        for key in keys:
+            if key not in _twiss.keys():
+                _key = key.split('_')[0]
+            else:
+                _key = key
+            if key in _from.keys():            
+                kwargs[key] = [_from[_key],_twiss.rows[_to][_key][0]]
+            else:
+                kwargs[key] = [0,_twiss.rows[_to][_key][0]]
+        return xt.LineSegmentMap(qx=qx,qy=qy,length=length,**kwargs)
+    
+    else:
+        keys = [k for k in xt.LineSegmentMap._xofields.keys() if (k in _twiss.keys()) or (k.split('_')[0] in _twiss.keys())]
+        keys.remove('qx')
+        keys.remove('qy')
+        kwargs = {}
+        for key in keys:
+            if key not in _twiss.keys():
+                _key = key.split('_')[0]
+            else:
+                _key = key
+            kwargs[key] = _twiss.rows[[_from,_to]][_key]
+        return xt.LineSegmentMap(qx=qx,qy=qy,length=length,longitudinal_mode='frozen',**kwargs)
+#====================================================================================================
+
+
 class Poincare_Section():
     def __init__(self,name=None,twiss = None,tune_on_co=None,nemitt_x=None,nemitt_y=None,nemitt_zeta=None):
         #===========================

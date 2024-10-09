@@ -454,11 +454,12 @@ class NAFF_Buffer(Buffer):
 # TORUS BUFFER
 #===================================================
 class TORUS_Buffer(Buffer):
-    def __init__(self,normalize=True,complex2tuple=True):
+    def __init__(self,normalize=True,complex2tuple=True,skip_naff = False):
         super().__init__()  
         self.clean()
-        self.normalize = normalize
-        self.complex2tuple = complex2tuple
+        self.normalize      = normalize
+        self.complex2tuple  = complex2tuple
+        self.skip_naff      = skip_naff
 
         # To be injected manually!
         #=========================
@@ -481,16 +482,14 @@ class TORUS_Buffer(Buffer):
 
     def to_dict(self):
         dct    = {}
-
         for key,value in self.data.items():
-
+            if len(value) == 0:
+                continue
             if np.issubdtype(value[0].dtype, complex) and self.complex2tuple:
                 # is complex
                 dct[key] = [[(c.real, c.imag) for c in row] for row in value]
             else:
                 dct[key] = value.tolist()
-
-
         return dct
         
     def clean(self,):
@@ -560,180 +559,193 @@ class TORUS_Buffer(Buffer):
         turn_idx  = turn_idx.reshape(self.n_torus*self.n_turns)
         state_multi = np.all(np.array(np.split(monitor.state.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)==1,axis=1).astype(int)
 
-        x_multi     = np.array(np.split(x_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        px_multi    = np.array(np.split(px_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        y_multi     = np.array(np.split(y_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        py_multi    = np.array(np.split(py_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        zeta_multi  = np.array(np.split(zeta_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        pzeta_multi = np.array(np.split(pzeta_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+        x_multi     = np.array(np.split(x_sig.T     , indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+        px_multi    = np.array(np.split(px_sig.T    , indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+        y_multi     = np.array(np.split(y_sig.T     , indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+        py_multi    = np.array(np.split(py_sig.T    , indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+        zeta_multi  = np.array(np.split(zeta_sig.T  , indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+        pzeta_multi = np.array(np.split(pzeta_sig.T , indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
         #========================================
         
-
-
-        # Extracting the harmonics
-        #--------------------------
-        n_harm       = self.n_harm
-        window_order = self.window_order
-        window_type  = self.window_type
-
-        Ax,Qx       = nafflib.multiparticle_harmonics(x_multi,px_multi      , num_harmonics=n_harm, window_order=window_order, window_type=window_type, processes = self.multiprocesses)
-        Ay,Qy       = nafflib.multiparticle_harmonics(y_multi,py_multi      , num_harmonics=n_harm, window_order=window_order, window_type=window_type, processes = self.multiprocesses)
-        Azeta,Qzeta = nafflib.multiparticle_harmonics(zeta_multi,pzeta_multi, num_harmonics=n_harm, window_order=window_order, window_type=window_type, processes = self.multiprocesses)
-
+        # Computing C-S like invariants
         Jx = 1/2 * np.mean(x_multi**2+px_multi**2,axis=1)
         Jy = 1/2 * np.mean(y_multi**2+py_multi**2,axis=1)
         Jzeta = 1/2 * np.mean(zeta_multi**2+pzeta_multi**2,axis=1)
 
-        # Appending to data
-        #-------------------------
-        self.data['turn']   = turn_idx
-        self.data['torus']  = torus_idx
-        self.data['state']  = state_multi
-        #----------
-        self.data['Ax'] = Ax
-        self.data['Qx'] = Qx
-        self.data['Ay'] = Ay
-        self.data['Qy'] = Qy
-        self.data['Azeta'] = Azeta
-        self.data['Qzeta'] = Qzeta
-        self.data['Jx']  = Jx
-        self.data['Jy']  = Jy
-        self.data['Jzeta']  = Jzeta
-        #-------------------------
-#===================================================
-
-
-
-
-
-
-
-
-
-
-
-
-#===================================================
-# TORUS BUFFER
-#===================================================
-class ACTION_Buffer(Buffer):
-    def __init__(self,normalize=True,complex2tuple=False):
-        super().__init__()  
-        self.clean()
-        self.normalize = normalize
-        self.complex2tuple = complex2tuple
-
-        # To be injected manually!
-        #=========================
-        self.twiss          = None
-        self.nemitt_x       = None
-        self.nemitt_y       = None
-        self.nemitt_zeta    = None
-        #=========================
-
-        # NAFF parameters
-        #=========================
-        self.n_torus      = None
-        self.n_points     = None
-        #=========================
-
-    def to_dict(self):
-        dct    = {}
-
-        for key,value in self.data.items():
-
-            if np.issubdtype(value[0].dtype, complex) and self.complex2tuple:
-                # is complex
-                dct[key] = [[(c.real, c.imag) for c in row] for row in value]
-            else:
-                dct[key] = value.tolist()
-
-
-        return dct
-        
-    def clean(self,):
-        self.data['turn']   = []
-        self.data['torus']  = []
-        self.data['state']  = []
-
-        self.data['Jx']  = []
-        self.data['Jy']  = []
-        self.data['Jzeta']  = []
-
-    def process(self,monitor):
-        self.update(monitor = monitor)
-
-        assert self.call_ID <= 1, "TORUS_Buffer is not designed to store multiple chunks!"
-
-
-        # Extracting data
-        #-------------------------
-        start_at_turn = monitor.start_at_turn
-        stop_at_turn  = monitor.stop_at_turn
-        self.n_turns  = stop_at_turn-start_at_turn
-
-        x    = monitor.x
-        px   = monitor.px
-        y    = monitor.y
-        py   = monitor.py
-        zeta = monitor.zeta
-        pzeta = monitor.pzeta
-
-        if self.normalize:
-            # Computing normalized coordinates
-            #--------------------------
-            XX_sig = xPlus._W_phys2norm(x,px,y,py,zeta,pzeta, 
-                                            W_matrix    = self.twiss.W_matrix,
-                                            co_dict     = self.twiss.particle_on_co.copy(_context=xo.context_default).to_dict(), 
-                                            nemitt_x    = self.nemitt_x, 
-                                            nemitt_y    = self.nemitt_y, 
-                                            nemitt_zeta = self.nemitt_zeta)
-
-            x_sig       = XX_sig[0,:,:]
-            px_sig      = XX_sig[1,:,:]
-            y_sig       = XX_sig[2,:,:]
-            py_sig      = XX_sig[3,:,:]
-            zeta_sig    = XX_sig[4,:,:]
-            pzeta_sig   = XX_sig[5,:,:]
+        if self.skip_naff or (self.n_harm is None) or (self.n_harm == 0):
+            # Appending to data
+            #-------------------------
+            self.data['turn']   = turn_idx
+            self.data['torus']  = torus_idx
+            self.data['state']  = state_multi
+            #----------
+            self.data['Jx']  = Jx
+            self.data['Jy']  = Jy
+            self.data['Jzeta']  = Jzeta
+            #-------------------------
         else:
-            x_sig       = x
-            px_sig      = px
-            y_sig       = y
-            py_sig      = py
-            zeta_sig    = zeta
-            pzeta_sig   = pzeta
+            # Extracting the harmonics
+            #--------------------------
+            n_harm       = self.n_harm
+            window_order = self.window_order
+            window_type  = self.window_type
+
+            Ax,Qx       = nafflib.multiparticle_harmonics(x_multi,px_multi      , num_harmonics=n_harm, window_order=window_order, window_type=window_type, processes = self.multiprocesses)
+            Ay,Qy       = nafflib.multiparticle_harmonics(y_multi,py_multi      , num_harmonics=n_harm, window_order=window_order, window_type=window_type, processes = self.multiprocesses)
+            Azeta,Qzeta = nafflib.multiparticle_harmonics(zeta_multi,pzeta_multi, num_harmonics=n_harm, window_order=window_order, window_type=window_type, processes = self.multiprocesses)
 
 
-        # Reshaping for faster handling
-        #========================================
-        torus_idx,turn_idx = np.mgrid[:self.n_torus,:self.n_turns]
-        torus_idx = torus_idx.reshape(self.n_torus*self.n_turns)
-        turn_idx  = turn_idx.reshape(self.n_torus*self.n_turns)
-        state_multi = np.all(np.array(np.split(monitor.state.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)==1,axis=1).astype(int)
 
-        x_multi     = np.array(np.split(x_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        px_multi    = np.array(np.split(px_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        y_multi     = np.array(np.split(y_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        py_multi    = np.array(np.split(py_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        zeta_multi  = np.array(np.split(zeta_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        pzeta_multi = np.array(np.split(pzeta_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
-        #========================================
+            # Appending to data
+            #-------------------------
+            self.data['turn']   = turn_idx
+            self.data['torus']  = torus_idx
+            self.data['state']  = state_multi
+            #----------
+            self.data['Ax'] = Ax
+            self.data['Qx'] = Qx
+            self.data['Ay'] = Ay
+            self.data['Qy'] = Qy
+            self.data['Azeta'] = Azeta
+            self.data['Qzeta'] = Qzeta
+            self.data['Jx']  = Jx
+            self.data['Jy']  = Jy
+            self.data['Jzeta']  = Jzeta
+            #-------------------------
+#===================================================
+
+
+
+
+
+
+
+
+
+
+
+
+# #===================================================
+# # TORUS BUFFER
+# #===================================================
+# class ACTION_Buffer(Buffer):
+#     def __init__(self,normalize=True,complex2tuple=False):
+#         super().__init__()  
+#         self.clean()
+#         self.normalize = normalize
+#         self.complex2tuple = complex2tuple
+
+#         # To be injected manually!
+#         #=========================
+#         self.twiss          = None
+#         self.nemitt_x       = None
+#         self.nemitt_y       = None
+#         self.nemitt_zeta    = None
+#         #=========================
+
+#         # NAFF parameters
+#         #=========================
+#         self.n_torus      = None
+#         self.n_points     = None
+#         #=========================
+
+#     def to_dict(self):
+#         dct    = {}
+
+#         for key,value in self.data.items():
+
+#             if np.issubdtype(value[0].dtype, complex) and self.complex2tuple:
+#                 # is complex
+#                 dct[key] = [[(c.real, c.imag) for c in row] for row in value]
+#             else:
+#                 dct[key] = value.tolist()
+
+
+#         return dct
+        
+#     def clean(self,):
+#         self.data['turn']   = []
+#         self.data['torus']  = []
+#         self.data['state']  = []
+
+#         self.data['Jx']  = []
+#         self.data['Jy']  = []
+#         self.data['Jzeta']  = []
+
+#     def process(self,monitor):
+#         self.update(monitor = monitor)
+
+#         assert self.call_ID <= 1, "TORUS_Buffer is not designed to store multiple chunks!"
+
+
+#         # Extracting data
+#         #-------------------------
+#         start_at_turn = monitor.start_at_turn
+#         stop_at_turn  = monitor.stop_at_turn
+#         self.n_turns  = stop_at_turn-start_at_turn
+
+#         x    = monitor.x
+#         px   = monitor.px
+#         y    = monitor.y
+#         py   = monitor.py
+#         zeta = monitor.zeta
+#         pzeta = monitor.pzeta
+
+#         if self.normalize:
+#             # Computing normalized coordinates
+#             #--------------------------
+#             XX_sig = xPlus._W_phys2norm(x,px,y,py,zeta,pzeta, 
+#                                             W_matrix    = self.twiss.W_matrix,
+#                                             co_dict     = self.twiss.particle_on_co.copy(_context=xo.context_default).to_dict(), 
+#                                             nemitt_x    = self.nemitt_x, 
+#                                             nemitt_y    = self.nemitt_y, 
+#                                             nemitt_zeta = self.nemitt_zeta)
+
+#             x_sig       = XX_sig[0,:,:]
+#             px_sig      = XX_sig[1,:,:]
+#             y_sig       = XX_sig[2,:,:]
+#             py_sig      = XX_sig[3,:,:]
+#             zeta_sig    = XX_sig[4,:,:]
+#             pzeta_sig   = XX_sig[5,:,:]
+#         else:
+#             x_sig       = x
+#             px_sig      = px
+#             y_sig       = y
+#             py_sig      = py
+#             zeta_sig    = zeta
+#             pzeta_sig   = pzeta
+
+
+#         # Reshaping for faster handling
+#         #========================================
+#         torus_idx,turn_idx = np.mgrid[:self.n_torus,:self.n_turns]
+#         torus_idx = torus_idx.reshape(self.n_torus*self.n_turns)
+#         turn_idx  = turn_idx.reshape(self.n_torus*self.n_turns)
+#         state_multi = np.all(np.array(np.split(monitor.state.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)==1,axis=1).astype(int)
+
+#         x_multi     = np.array(np.split(x_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+#         px_multi    = np.array(np.split(px_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+#         y_multi     = np.array(np.split(y_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+#         py_multi    = np.array(np.split(py_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+#         zeta_multi  = np.array(np.split(zeta_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+#         pzeta_multi = np.array(np.split(pzeta_sig.T, indices_or_sections = self.n_torus , axis=1)).reshape(self.n_torus*self.n_turns,self.n_points)
+#         #========================================
         
 
 
-        Jx = 1/2 * np.mean(x_multi**2+px_multi**2,axis=1)
-        Jy = 1/2 * np.mean(y_multi**2+py_multi**2,axis=1)
-        Jzeta = 1/2 * np.mean(zeta_multi**2+pzeta_multi**2,axis=1)
+#         Jx = 1/2 * np.mean(x_multi**2+px_multi**2,axis=1)
+#         Jy = 1/2 * np.mean(y_multi**2+py_multi**2,axis=1)
+#         Jzeta = 1/2 * np.mean(zeta_multi**2+pzeta_multi**2,axis=1)
 
 
-        # Appending to data
-        #-------------------------
-        self.data['turn']   = turn_idx
-        self.data['torus']  = torus_idx
-        self.data['state']  = state_multi
-        #----------
-        self.data['Jx']  = Jx
-        self.data['Jy']  = Jy
-        self.data['Jzeta']  = Jzeta
-        #-------------------------
-#===================================================
+#         # Appending to data
+#         #-------------------------
+#         self.data['turn']   = turn_idx
+#         self.data['torus']  = torus_idx
+#         self.data['state']  = state_multi
+#         #----------
+#         self.data['Jx']  = Jx
+#         self.data['Jy']  = Jy
+#         self.data['Jzeta']  = Jzeta
+#         #-------------------------
+# #===================================================
