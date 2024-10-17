@@ -1,6 +1,10 @@
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import time 
+import gc 
+import os
+
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -24,7 +28,7 @@ FIG_H = 6
 
 
 plt.rcParams.update({
-    "text.usetex": True,
+    "text.usetex": False,
     "font.family": "serif",
     "xtick.labelsize":14,
     "ytick.labelsize":14,
@@ -54,85 +58,124 @@ tank_list = ['a', 'b', 'c']
 # ==================================================================================================
 # --- Main script
 # ==================================================================================================
-def prepare_line(Iw,dn,collider_file):
+def prepare_line(config):
     # Parameters
     #-------------------------------------
-    seq         = 'lhcb1'
-    ip_name     = 'ip1'
-    disable_ho  = True
+    seq         = config['sequence']
+    ip_name     = config['ip']
+    disable_ho  = config['disable_ho']
+    # as_wires    = True
 
-    if seq == 'lhcb1':
-        beam_name   = 'b1'
-        s_marker    = f'e.ds.l{ip_name[-1]}.b1'
-        e_marker    = f's.ds.r{ip_name[-1]}.b1'
-    else:
-        beam_name   = 'b2'
-        s_marker    = f's.ds.r{ip_name[-1]}.b2'
-        e_marker    = f'e.ds.l{ip_name[-1]}.b2'
+    beam_name = seq[-2:]
+    s_marker  = config['s_marker']
+    e_marker  = config['e_marker']
     #-------------------------------------
 
 
     # Loading collider
     #-------------------------------------
-    collider    = xt.Multiline.from_json(collider_file)
+    collider    = xt.Multiline.from_json(config['collider_path'])
     line0       = collider[seq]
 
-    # Adjusting beam-beam
+    # Extraction name of BB elements
     #-------------------------------------
     _direction  = 'clockwise' if seq == 'lhcb1' else 'anticlockwise'
     bblr_names  = collider._bb_config['dataframes'][_direction].groupby('ip_name').get_group(ip_name).groupby('label').get_group('bb_lr').index.to_list()
     bbho_names  = collider._bb_config['dataframes'][_direction].groupby('ip_name').get_group(ip_name).groupby('label').get_group('bb_ho').index.to_list()
-    if disable_ho:
-        for nn in bbho_names:
-            line0.element_refs[nn].scale_strength = 0
+    bblr_names_all  = collider._bb_config['dataframes'][_direction].groupby('label').get_group('bb_lr').index.to_list()
+    bbho_names_all  = collider._bb_config['dataframes'][_direction].groupby('label').get_group('bb_ho').index.to_list()
 
-    # Making sure all LR are enabled
-    for nn in bblr_names:
-        assert line0.element_refs[nn].scale_strength._value == 1, f'LR element {nn} is not enabled'
-        # line0.element_refs[nn].scale_strength = 0.7
+
+    # Keeping only the active bblr
+    active_bblr     = [nn for nn in bblr_names_all if line0.element_refs[nn].scale_strength._value != 0]
+    active_strength = [line0.element_refs[nn].scale_strength._value for nn in bblr_names_all if line0.element_refs[nn].scale_strength._value != 0]
+
+
 
     # Adjusting wires
     #-------------------------------------
     # Power master knobs
-    for loc in loc_list:
-        collider.vars[f'i_wire.{loc}.{beam_name}']  = Iw
-        collider.vars[f'dn_wire.{loc}.{beam_name}'] = dn
+    collider.vars[f'bbcw_enable_ff_tune'] = 1
+    if config['d_normalized']:
+        for loc in loc_list:
+            collider.vars[f'i_wire.{loc}.{beam_name}']  = 0
+            collider.vars[f'dn_wire.{loc}.{beam_name}'] = 50
+    else:
+    # Link all tanks to common knob
+        for loc  in loc_list:
+            # Define master knobs
+            collider.vars[f'i_wire.{loc}.{beam_name}'] = 0
+            collider.vars[f'd_wire.{loc}.{beam_name}'] = 1 
+            # Link tank knobs
+            for tank in tank_list:
+                # Distance to wire
+                collider.vars[f'd_wire.{tank}.{loc}.{beam_name}'] = collider.vars[f'd_wire.{loc}.{beam_name}']
 
-    twiss0      = line0.twiss4d()
-    twiss_init  = twiss0.get_twiss_init(at_element=s_marker)
-    line        = line0.select(s_marker,e_marker)
 
     # Extracting nemitt
-    line.metadata['nemitt_x'] = collider.metadata['config_collider']['config_beambeam']['nemitt_x']
-    line.metadata['nemitt_y'] = collider.metadata['config_collider']['config_beambeam']['nemitt_y']
-
-    return line,twiss_init
+    line0.metadata['nemitt_x'] = collider.metadata['config_collider']['config_beambeam']['nemitt_x']
+    line0.metadata['nemitt_y'] = collider.metadata['config_collider']['config_beambeam']['nemitt_y']
 
 
-def compute_residual(Jid            = 0,
-                     collider_file  = './colliders/collider_bbcw.json',
-                     num_threads    = 'auto'):
+    # Ref Twiss
+    #===========================================
+    for nn in bblr_names_all:
+        line0.element_refs[nn].scale_strength = 0
+    for nn in bbho_names_all:
+        line0.element_refs[nn].scale_strength = 0
+    twiss0      = line0.twiss4d()
+    twiss_init  = twiss0.get_twiss_init(at_element=s_marker)
     
+    # Restoring active bblr and bbho
+    #--------------------------------
+    for nn,ss in zip(active_bblr,active_strength):
+        line0.element_refs[nn].scale_strength = ss
+    
+    if not disable_ho:
+        for nn in bbho_names_all:
+            line0.element_refs[nn].scale_strength = 1
+    #===========================================
+
+
+    # Killing some BBLR (forward physics test)
+    #===========================================
+    if 'kill_bblr' in list(config.keys()):
+        if config['kill_bblr'] is not None:
+            for to_kill in config['kill_bblr']:
+                for nn in bblr_names_all:
+                    if f'bb_lr.{to_kill}' in nn: 
+                        line0.element_refs[nn].scale_strength = 0
+    #===========================================
+
+
+
+
+
+    return line0,twiss0,twiss_init,beam_name,ip_name,s_marker,e_marker
+
+
+def compute_residual(Jid = '0', config_file    = 'config.yaml'):
     
     # Parameter space
     #=======================================================================
+    config = xutils.read_YAML(config_file)
+
+
     # Wire
     #---------------
-    dn_grid, I_grid = np.meshgrid(  np.linspace(10,18,50),
-                                    np.linspace(0,200,50))
-    
-    chosen_dn = dn_grid.flatten()[int(Jid)]
-    chosen_I  = I_grid.flatten()[int(Jid)]
+    d_grid, I_grid  = np.meshgrid(  np.linspace(config['d_min'],config['d_max'],config['n_d']),
+                                    np.linspace(config['I_min'],config['I_max'],config['n_I']))
+    _dw , _Iw = d_grid.flatten()[int(Jid)], I_grid.flatten()[int(Jid)]
     #---------------
 
     # Tori
     #---------------
-    n_part = int(1e3)
+    n_part = int(config['n_part'])
     #------------------
-    r_min   = 4.0
-    r_max   = 10.0
-    n_r     = 50
-    n_angles= 31
+    r_min   = config['r_min']
+    r_max   = config['r_max']
+    n_r     = config['n_r']
+    n_angles= config['n_angles']
     #--------------------
     radial_list = np.linspace(r_min, r_max, n_r)
     theta_list  = np.linspace(0, np.pi/2, n_angles + 2)[1:-1]
@@ -145,44 +188,6 @@ def compute_residual(Jid            = 0,
     fz  = -1/2/np.sqrt(5)/100
     #=======================================================================
 
-
-    # Beam info
-    #---------------
-
-
-
-    # Prepare line
-    #=======================================================================
-    context = xo.ContextCpu(omp_num_threads=num_threads)
-    line,twiss_init = prepare_line(Iw = chosen_I,dn = chosen_dn,collider_file = collider_file)
-
-    # Monitor
-    #-------------------------------------
-    monitor_name = 'buffer_monitor'
-    n_torus = len(rx_vec.flatten())  
-    monitor = xt.ParticlesMonitor(  _context      = context,
-                                    num_particles = int(n_torus*n_part) ,
-                                    start_at_turn = 0, 
-                                    stop_at_turn  = 1)
-    line.insert_element(index=line.element_names[-1], element=monitor, name=monitor_name)
-    #-------------------------------------
-    
-    line.build_tracker(_context=context)
-    twiss = line.twiss4d(start=line.element_names[0],end=line.element_names[-1],init=twiss_init)
-    #=======================================================================
-
-    # Buffer
-    #=======================================================================
-    buffer  = xBuff.TORUS_Buffer(complex2tuple=False,skip_naff=True)
-    #---------------------------------------------------------
-    buffer.n_torus      = n_torus
-    buffer.n_points     = n_part
-    buffer.twiss        = twiss.get_twiss_init(at_element=monitor_name)
-    buffer.nemitt_x     = line.metadata['nemitt_x']    
-    buffer.nemitt_y     = line.metadata['nemitt_y']    
-    buffer.nemitt_zeta  = None # To avoid any rescaling
-    #---------------------------------------------------------
-    #=======================================================================
 
 
     # GENERATING TORI
@@ -200,6 +205,77 @@ def compute_residual(Jid            = 0,
         init_coord[f'py_n'] += list(-np.imag(Gy))
     #=======================================================================
 
+
+    # Prepare line
+    #=======================================================================
+    context = xo.ContextCpu(omp_num_threads=config['num_threads'])
+    line0,twiss0,twiss_init,beam_name,ip_name,s_marker,e_marker = prepare_line(config)
+
+
+    # Adjusting wires
+    #-------------------------------------
+    # Power master knobs
+    line0.vars[f'bbcw_enable_ff_tune'] = 1
+    for loc in loc_list:
+        line0.vars[f'i_wire.{loc}.{beam_name}']  = 0
+        line0.vars[f'dn_wire.{loc}.{beam_name}'] = 12
+
+
+
+    line        = line0.select(s_marker,e_marker)
+    bbcw_names  = [nn for nn in line.element_names if 'bbcw' in nn]
+
+
+    # Monitor
+    #-------------------------------------
+    monitor_name = 'buffer_monitor'
+    n_torus = len(rx_vec.flatten())  
+    monitor = xt.ParticlesMonitor(  _context      = context,
+                                    num_particles = int(n_torus*n_part) ,
+                                    start_at_turn = 0, 
+                                    stop_at_turn  = 1)
+    line.insert_element(index=line.element_names[-1], element=monitor, name=monitor_name)
+    #-------------------------------------
+    twiss = line.twiss4d(start=line.element_names[0],end=line.element_names[-1],init=twiss_init)
+    #=======================================================================
+
+
+
+
+    # Adjusting wires 
+    #-------------------------------------
+    # Power master knobs
+    if config['d_normalized']:
+        d_knob = 'dn'
+    else:
+        d_knob = 'd'
+
+    line.vars[f'bbcw_enable_ff_tune'] = 1
+    for loc in config['bbcw_locations']:
+        line.vars[f'i_wire.{loc}.{beam_name}']          = _Iw
+        line.vars[f'{d_knob}_wire.{loc}.{beam_name}']   = _dw
+
+    twiss = line.twiss4d(start=line.element_names[0],end=line.element_names[-1],init=twiss_init)
+    #=======================================================================
+
+
+
+    # Buffer
+    #=======================================================================
+    buffer  = xBuff.TORUS_Buffer(complex2tuple=False,skip_naff=True)
+    #---------------------------------------------------------
+    buffer.n_torus      = n_torus
+    buffer.n_points     = n_part
+    buffer.twiss        = twiss.get_twiss_init(at_element=monitor_name)
+    buffer.nemitt_x     = line0.metadata['nemitt_x']    
+    buffer.nemitt_y     = line0.metadata['nemitt_y']    
+    buffer.nemitt_zeta  = None # To avoid any rescaling
+    #---------------------------------------------------------
+    #=======================================================================
+
+
+
+
     # TRACKING
     #=======================================================================
     particles = line.build_particles(   x_norm   = init_coord['x_n'],
@@ -207,14 +283,15 @@ def compute_residual(Jid            = 0,
                                         y_norm   = init_coord['y_n'],
                                         py_norm  = init_coord['py_n'],
                                         method   = '4d',
-                                        nemitt_x = line.metadata['nemitt_x'],
-                                        nemitt_y = line.metadata['nemitt_y'],
+                                        nemitt_x = line0.metadata['nemitt_x'],
+                                        nemitt_y = line0.metadata['nemitt_y'],
                                         nemitt_zeta     = None,
                                         W_matrix        = twiss.W_matrix[0],
                                         particle_on_co  = twiss.particle_on_co.copy(),
                                         _context        = context)
 
-    line.track(particles, num_turns= 1,turn_by_turn_monitor=True,with_progress=True)
+    monitor.reset(start_at_turn = 0,stop_at_turn = 1)
+    line.track(particles, num_turns= 1,turn_by_turn_monitor=True)
     #=======================================================================
 
 
@@ -222,7 +299,12 @@ def compute_residual(Jid            = 0,
     #==============================
     buffer.process(monitor=monitor)
     df_buffer = buffer.to_pandas().groupby('turn').get_group(0).set_index('torus')
+    #==============================
+
     
+    gc.collect()
+    # os.system('cls||clear')
+
     residual = []
     for rx,ry,(idx,torus) in zip(rx_vec.flatten(),ry_vec.flatten(),df_buffer.iterrows()):
 
@@ -241,16 +323,22 @@ def compute_residual(Jid            = 0,
     residual = np.array(residual)
 
 
-    df = pd.DataFrame({'Iw' :chosen_I,
-                       'dw' :chosen_dn,
-                       'rx' :rx_vec.flatten(),
-                       'ry' :ry_vec.flatten(),
-                       'r'      :rr.flatten(),
-                       'angle'  :tt.flatten(),
-                       'residual':residual})
+    df = pd.DataFrame({ 'Iw'        :_Iw,
+                        f'{d_knob}' :_dw,
+                        'rx'        :rx_vec.flatten(),
+                        'ry'        :ry_vec.flatten(),
+                        'r'         :rr.flatten(),
+                        'angle'     :tt.flatten(),
+                        'residual'  :residual})
     #===============================
 
-    return df,line,twiss_init
+
+    # Exporting to parquet
+    xutils.mkdir(config['out_path'])
+    df.to_parquet(config['out_path'] + f'/OUT_JOB_{str(Jid).zfill(4)}.parquet')
+
+    return df,line,twiss_init,config
+
 
 
 
@@ -264,8 +352,7 @@ if __name__ == '__main__':
     # Adding command line parser
     aparser = argparse.ArgumentParser()
     aparser.add_argument("-id"  , "--id_job"        , help = "Job ID"               , default = '0')
-    aparser.add_argument("-coll", "--collider"      , help = "Collider file"        , default = './colliders/collider_bbcw.json')
-    aparser.add_argument("-m"   , "--multithread"   , help = "Num. Threads"         , default = 'auto')
+    aparser.add_argument("-c"   , "--config"        , help = "Config file"          , default = './config.yaml')
     aparser.add_argument("-plt" , "--plot"          , help = "Show results as plot" , action  = "store_true")
     aparser.add_argument("-splt" , "--splot"        , help = "Save results as plot" , action  = "store_true")
     aparser.add_argument("-DA"  , "--critical_DA"   , help = "Set crit. DA for plot", default = 6)
@@ -275,9 +362,8 @@ if __name__ == '__main__':
     
     
     # Main function
-    df,line,twiss_init = compute_residual(  Jid             = args.id_job,
-                                            collider_file   = args.collider,
-                                            num_threads     = args.multithread)
+    df,line,twiss_init,config = compute_residual(   Jid         = args.id_job,
+                                                    config_file = args.config)
     
     # # Exporting to parquet
     # xutils.mkdir('./outputs')
@@ -288,9 +374,19 @@ if __name__ == '__main__':
 
         if args.critical_residual is None:
             # Finding critical residual
-            critical_DA  = float(args.critical_DA)
+            critical_DA  = args.critical_DA
             critical_roi = (np.abs(df.r - critical_DA) < 0.2)
-            critical_res = np.max(df.residual[critical_roi])
+            DA_min = []
+            for _cr in df.residual[critical_roi]:
+                # Estimating DA
+                _DA_per_angle = []
+                for name,group in df.groupby(pd.cut(df.angle,1000),observed=True):
+                    if np.any(group.residual>(_cr)):
+                        _DA_per_angle.append(np.min(group.r[group.residual>(_cr)]))
+                    else:
+                        _DA_per_angle.append(np.max(group.r))
+                DA_min.append(np.min(np.array(_DA_per_angle)))
+            critical_res = np.array(df.residual[critical_roi])[np.argmin(np.abs(np.array(DA_min)-critical_DA))]
         else:
             critical_res = float(args.critical_residual)
             critical_DA = None
@@ -339,8 +435,8 @@ if __name__ == '__main__':
         plt.tight_layout()
 
         if args.splot:
-            xutils.mkdir('./figures')
-            plt.savefig(f'./figures/OUT_JOB_{str(args.id_job).zfill(4)}.png',dpi=300)
+            xutils.mkdir(config['out_path'] + '/figures')
+            plt.savefig(config['out_path'] + f'/figures/OUT_JOB_{str(args.id_job).zfill(4)}.png',dpi=50)
         else:
             plt.show()
     

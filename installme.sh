@@ -92,6 +92,9 @@ pip install -e ./Executables/$ENV_NAME/xtrack
 git clone https://github.com/xsuite/xmask ./Executables/$ENV_NAME/xmask
 pip install -e ./Executables/$ENV_NAME/xmask
 
+git clone https://github.com/xsuite/xcoll ./Executables/$ENV_NAME/xcoll
+pip install -e ./Executables/$ENV_NAME/xcoll
+
 git clone https://github.com/xsuite/xfields ./Executables/$ENV_NAME/xfields
 pip install -e ./Executables/$ENV_NAME/xfields
 
@@ -110,7 +113,7 @@ git submodule init
 git submodule update
 
 git clone https://github.com/xsuite/xsuite ./Executables/$ENV_NAME/xsuite
-pip install -e ./Executables/$ENV_NAME/xsuite
+pip install -e ./Executables/$ENV_NAME/xsuite --no-deps
 xsuite-prebuild regenerate
 
 # Downloading sequences
