@@ -1,0 +1,34 @@
+#======================================================
+#-- Residual analysis
+#======================================================
+
+# Load beam and ip
+collider_path : CR_HL_data/colliders/collider_baseline_250.json
+sequence      : lhcb1
+ip            : ip1
+#-----------------------
+s_marker      : e.ds.l1.b1
+e_marker      : s.ds.r1.b1
+#-----------------------
+disable_ho    : True
+bbcw_locations: ['4l1','4r1','4l5','4r5']
+#-----------------------
+d_normalized  : True
+I_min         : 0
+I_max         : 200
+d_min         : 10
+d_max         : 18
+n_I           : 50
+n_d           : 50
+#-----------------------
+n_part        : 1000
+r_min         : 4.0
+r_max         : 10.0
+n_r           : 40
+n_angles      : 15
+#-----------------------
+
+num_threads   : 2
+max_workers   : 50
+out_path      : CR_HL_data/output_collections/outputs_V00
+
