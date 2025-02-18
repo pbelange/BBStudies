@@ -343,9 +343,9 @@ def register_click(fig,x_timestamp = False,y_timestamp = False,TZONE='Europe/Par
 ###############################################################################
 from matplotlib.colors import BoundaryNorm
 from matplotlib.patches import FancyArrowPatch
-def drawArrow(x,y,scale=2,rotate=0,facecolor = None,color='C0',alpha=1,label = None,zorder=None):
+def drawArrow(x,y,scale=2,rotate=0,facecolor = None,color='C0',alpha=1,label = None,zorder=None,**kwargs):
     ax = plt.gca()
-    ax.plot(x[:-2], y[:-2], color=color,alpha=alpha,label=label)
+    ax.plot(x[:-2], y[:-2], color=color,alpha=alpha,label=label,**kwargs)
     posA, posB = zip(x[-2:], y[-2:])
     edge_width = 2.*scale
     anglestyle = "arc3,rad={}".format(np.radians(rotate))

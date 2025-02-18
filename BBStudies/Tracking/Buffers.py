@@ -333,6 +333,10 @@ class Excursion_Buffer(Buffer):
 #===================================================
         
 
+# #==================================================
+# # Normalized buffer
+# #===================================================
+# class Normalized_Buffer(Buffer):
 
 
 #===================================================
@@ -362,7 +366,7 @@ class NAFF_Buffer(Buffer):
         self.normalize = normalize
         #=========================
 
-        
+
     def clean(self,):
         self.data['window'] = []
         self.data['particle'] = []
@@ -387,36 +391,25 @@ class NAFF_Buffer(Buffer):
         start_at_turn = monitor.start_at_turn
         stop_at_turn  = monitor.stop_at_turn
 
-        x    = monitor.x
-        px   = monitor.px
-        y    = monitor.y
-        py   = monitor.py
-        zeta = monitor.zeta
-        pzeta = monitor.pzeta
 
         if self.normalize:
-            # Computing normalized coordinates
-            #--------------------------
-            XX_sig = xPlus._W_phys2norm(x,px,y,py,zeta,pzeta, 
-                                            W_matrix    = self.twiss.W_matrix,
-                                            co_dict     = self.twiss.particle_on_co.copy(_context=xo.context_default).to_dict(), 
-                                            nemitt_x    = self.nemitt_x, 
-                                            nemitt_y    = self.nemitt_y, 
-                                            nemitt_zeta = self.nemitt_zeta)
-
-            x_sig       = XX_sig[0,:,:]
-            px_sig      = XX_sig[1,:,:]
-            y_sig       = XX_sig[2,:,:]
-            py_sig      = XX_sig[3,:,:]
-            zeta_sig    = XX_sig[4,:,:]
-            pzeta_sig   = XX_sig[5,:,:]
+            monitor = monitor.phys2norm(    twiss_init    = self.twiss,
+                                            nemitt_x      = self.nemitt_x,
+                                            nemitt_y      = self.nemitt_y,
+                                            nemitt_zeta   = self.nemitt_zeta)
+            x_sig       = monitor.x_norm
+            px_sig      = monitor.px_norm
+            y_sig       = monitor.y_norm
+            py_sig      = monitor.py_norm
+            zeta_sig    = monitor.zeta_norm
+            pzeta_sig   = monitor.pzeta_norm
         else:
-            x_sig       = x
-            px_sig      = px
-            y_sig       = y
-            py_sig      = py
-            zeta_sig    = zeta
-            pzeta_sig   = pzeta
+            x_sig       = monitor.x
+            px_sig      = monitor.px
+            y_sig       = monitor.y
+            py_sig      = monitor.py
+            zeta_sig    = monitor.zeta
+            pzeta_sig   = monitor.pzeta
 
 
         # Extracting the harmonics
@@ -504,9 +497,13 @@ class TORUS_Buffer(Buffer):
         self.data['Azeta']  = []
         self.data['Qzeta']  = []
 
-        self.data['Jx']  = []
-        self.data['Jy']  = []
+        self.data['Jx']     = []
+        self.data['Jy']     = []
         self.data['Jzeta']  = []
+        self.data['Jcov']   = []
+        self.data['Jsmear'] = []
+        self.data['fcov']   = []
+        self.data['fsmear'] = []
 
     def process(self,monitor):
         self.update(monitor = monitor)
@@ -520,36 +517,25 @@ class TORUS_Buffer(Buffer):
         stop_at_turn  = monitor.stop_at_turn
         self.n_turns  = stop_at_turn-start_at_turn
 
-        x    = monitor.x
-        px   = monitor.px
-        y    = monitor.y
-        py   = monitor.py
-        zeta = monitor.zeta
-        pzeta = monitor.pzeta
 
         if self.normalize:
-            # Computing normalized coordinates
-            #--------------------------
-            XX_sig = xPlus._W_phys2norm(x,px,y,py,zeta,pzeta, 
-                                            W_matrix    = self.twiss.W_matrix,
-                                            co_dict     = self.twiss.particle_on_co.copy(_context=xo.context_default).to_dict(), 
-                                            nemitt_x    = self.nemitt_x, 
-                                            nemitt_y    = self.nemitt_y, 
-                                            nemitt_zeta = self.nemitt_zeta)
-
-            x_sig       = XX_sig[0,:,:]
-            px_sig      = XX_sig[1,:,:]
-            y_sig       = XX_sig[2,:,:]
-            py_sig      = XX_sig[3,:,:]
-            zeta_sig    = XX_sig[4,:,:]
-            pzeta_sig   = XX_sig[5,:,:]
+            monitor = monitor.phys2norm( twiss_init    = self.twiss,
+                                    nemitt_x      = self.nemitt_x,
+                                    nemitt_y      = self.nemitt_y,
+                                    nemitt_zeta   = self.nemitt_zeta)
+            x_sig       = monitor.x_norm
+            px_sig      = monitor.px_norm
+            y_sig       = monitor.y_norm
+            py_sig      = monitor.py_norm
+            zeta_sig    = monitor.zeta_norm
+            pzeta_sig   = monitor.pzeta_norm
         else:
-            x_sig       = x
-            px_sig      = px
-            y_sig       = y
-            py_sig      = py
-            zeta_sig    = zeta
-            pzeta_sig   = pzeta
+            x_sig       = monitor.x
+            px_sig      = monitor.px
+            y_sig       = monitor.y
+            py_sig      = monitor.py
+            zeta_sig    = monitor.zeta
+            pzeta_sig   = monitor.pzeta
 
 
         # Reshaping for faster handling
@@ -571,6 +557,15 @@ class TORUS_Buffer(Buffer):
         Jx = 1/2 * np.mean(x_multi**2+px_multi**2,axis=1)
         Jy = 1/2 * np.mean(y_multi**2+py_multi**2,axis=1)
         Jzeta = 1/2 * np.mean(zeta_multi**2+pzeta_multi**2,axis=1)
+        J_cov = 1/2 * np.mean((x_multi**2+px_multi**2)**2 + (y_multi**2+py_multi**2)**2 + (zeta_multi**2+pzeta_multi**2)**2,axis=1) - (Jx**2+Jy**2+Jzeta**2)
+        J_smear = np.sqrt(J_cov)/np.sqrt(Jx**2+Jy**2+Jzeta**2)
+
+
+        fx =  1/2 * (x_multi**2+px_multi**2 -  np.mean(x_multi**2+px_multi**2,axis=1)[:, np.newaxis])
+        fy =  1/2 * (y_multi**2+py_multi**2 -  np.mean(y_multi**2+py_multi**2,axis=1)[:, np.newaxis])
+        fzeta =  1/2 * (zeta_multi**2+pzeta_multi**2 -  np.mean(zeta_multi**2+pzeta_multi**2,axis=1)[:, np.newaxis])
+        f_cov = np.mean(fx**2 + fy**2 + fzeta**2,axis=1)
+        f_smear = np.sqrt(f_cov)/np.sqrt(Jx**2+Jy**2+Jzeta**2)
 
         if self.skip_naff or (self.n_harm is None) or (self.n_harm == 0):
             # Appending to data
@@ -579,9 +574,13 @@ class TORUS_Buffer(Buffer):
             self.data['torus']  = torus_idx
             self.data['state']  = state_multi
             #----------
-            self.data['Jx']  = Jx
-            self.data['Jy']  = Jy
+            self.data['Jx']     = Jx
+            self.data['Jy']     = Jy
             self.data['Jzeta']  = Jzeta
+            self.data['Jcov']   = J_cov
+            self.data['Jsmear'] = J_smear
+            self.data['fsmear'] = f_smear
+            self.data['fcov']   = f_cov
             #-------------------------
         else:
             # Extracting the harmonics
@@ -608,9 +607,13 @@ class TORUS_Buffer(Buffer):
             self.data['Qy'] = Qy
             self.data['Azeta'] = Azeta
             self.data['Qzeta'] = Qzeta
-            self.data['Jx']  = Jx
-            self.data['Jy']  = Jy
+            self.data['Jx']     = Jx
+            self.data['Jy']     = Jy
             self.data['Jzeta']  = Jzeta
+            self.data['Jcov']   = J_cov
+            self.data['Jsmear'] = J_smear
+            self.data['fsmear'] = f_smear
+            self.data['fcov']   = f_cov
             #-------------------------
 #===================================================
 

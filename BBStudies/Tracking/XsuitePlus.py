@@ -49,6 +49,28 @@ xt.ParticlesMonitor.reset = reset_monitor
 #==============================
 
 
+#==============================
+def phys2norm(self,twiss_init,nemitt_x=None,nemitt_y=None,nemitt_zeta=None):
+
+        table = twiss_init.get_normalized_coordinates(self,nemitt_x=nemitt_x, nemitt_y=nemitt_y,nemitt_zeta=nemitt_zeta)
+
+        monitor_norm = self.copy()
+        norm_vars = tuple((tt,nn+'_norm') for tt,nn in xt.Particles.per_particle_vars+((xo.Float64, 'pzeta'),) if nn in ['x','y','zeta','px','py','pzeta'])
+        for tt, nn in norm_vars:
+            setattr(monitor_norm, nn, xt.monitors.particles_monitor._FieldOfMonitor(name=nn))
+
+        monitor_norm.x_norm = table.x_norm.reshape(self.x.shape)
+        monitor_norm.y_norm = table.y_norm.reshape(self.y.shape)
+        monitor_norm.zeta_norm = table.zeta_norm.reshape(self.zeta.shape)
+        monitor_norm.px_norm = table.px_norm.reshape(self.px.shape)
+        monitor_norm.py_norm = table.py_norm.reshape(self.py.shape)
+        monitor_norm.pzeta_norm = table.pzeta_norm.reshape(self.pzeta.shape)
+        
+        return monitor_norm
+
+xt.ParticlesMonitor.phys2norm = phys2norm
+#==============================
+
 
 # Linear connector between elements
 #====================================================================================================
@@ -689,4 +711,68 @@ def split_in_chunks(turns,main_chunk = None,n_chunks = None):
 
 
 
+#=========================================================================================
+# MADNG RDTS
+def RDTs_at_element(ee_name,line,order=4,twiss_file = None,mode='6d'):
+    _seq_name = 'xline'
+    _varname  = 'nf.gnf'
 
+    _imports =  ''' 
+                local damap, twiss, track, mtbl in MAD
+                local normal in MAD.gphys
+                local {sequence} = MADX.{sequence}
+                '''
+    
+    if twiss_file is not None:
+        _iftwiss =  '''
+                local twissmtbl = twiss {{sequence={sequence}, coupling=true}}
+                twissmtbl:write"{twiss_file}"
+                '''
+    else:
+        _iftwiss = ''
+
+
+    
+    _get_RDTs = '''
+                -- Function to get the normal form
+                local function get_nf(seq)
+                    local mtbl = track {{sequence=seq, mapdef={order}, save=true, savemap=true, observe=0}}
+                    return normal(mtbl.{EE_NAME}.__map):analyse("all") -- return nf
+                end
+
+                nf = get_nf({sequence})   
+                py:send({varname})
+                '''
+    
+    # Formatting command
+    _cmd = (_imports + _iftwiss + _get_RDTs).format(sequence    =_seq_name,
+                                                   varname      = _varname,
+                                                   EE_NAME      = ee_name.upper(),
+                                                   order        = order,
+                                                   twiss_file   = twiss_file)
+
+
+    # MADNG instance
+    _mng = line.to_madng(sequence_name=_seq_name,keep_files=False)
+    
+    # Send-Receive
+    _mng.send(_cmd)
+    keys,gnf = _mng.recv(_varname)
+    
+    # Converting to df
+    _rdts = {k:gnf[k] for k in keys}
+    _rdts = pd.Series(_rdts).to_frame('f').reset_index().rename(columns={'index':'label'})
+    for i,label in enumerate(['j','k','l','m','n','o']):
+        _rdts.insert(1+i,label,_rdts.label.apply(lambda x: int(x[i])))
+    _rdts.insert(1,'order',_rdts.label.apply(lambda x: sum([int(_i) for _i in x])))
+
+
+    assert mode in ['6d','4d'], 'Mode should be either 6d or 4d'
+    if mode == '6d':
+        return _rdts
+    elif mode == '4d':
+        _rdts = _rdts[(_rdts.n==0)&(_rdts.o==0)].reset_index(drop=True)
+        _rdts = _rdts.drop(columns=['n','o'])
+        _rdts.label = _rdts.label.apply(lambda x: x[:4])
+        return _rdts
+#=========================================================================================
